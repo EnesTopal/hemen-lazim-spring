@@ -1,0 +1,13 @@
+-- MATERIAL_REQUESTS → USERS
+ALTER TABLE `material_requests`
+  ADD CONSTRAINT `fk_material_requests_requester`
+  FOREIGN KEY (`requester_id`) REFERENCES `users`(`id`)
+  ON DELETE CASCADE
+  ON UPDATE RESTRICT;
+
+-- DEVICES → USERS
+ALTER TABLE `devices`
+  ADD CONSTRAINT `fk_devices_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT;

@@ -1,6 +1,7 @@
 package com.tpl.hemen_lazim.security;
 
 import com.tpl.hemen_lazim.model.User;
+import com.tpl.hemen_lazim.model.enums.Role;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -32,14 +33,15 @@ public class JwtUserDetails implements UserDetails {
     }
 
     public static JwtUserDetails create(User user) {
-        List<GrantedAuthority> roles = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        Role role = user.getRole() != null ? user.getRole() : Role.USER;
+        GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role.name());
 
         return new JwtUserDetails(
                 user.getId(),
-                user.getUserName(),      // Eğer email ile giriş olacaksa: user.getEmail()
+                user.getUserName(),          // e-posta ile login'e geçersen burada user.getEmail()
                 user.getPasswordHash(),
                 user.isEnabled(),
-                roles
+                List.of(authority)           // tek elemanlı liste
         );
     }
 

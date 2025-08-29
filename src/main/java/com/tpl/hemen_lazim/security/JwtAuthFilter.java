@@ -34,27 +34,43 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             String jwt = extractToken(request);
+            System.out.println("Authorization header’dan çıkarılan JWT: " + (jwt != null ? jwt : "yok"));
 
             if (StringUtils.hasText(jwt) && jwtGenerate.validateToken(jwt)) {
+                System.out.println("Token alındı ve geçerli: " + jwt);
+
                 UUID userId = jwtGenerate.getUserIdFromToken(jwt);
 
-                // Aynı request içinde tekrar set etmemek için kontrol
                 if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    UserDetails user = jwtUserDetailsService.loadUserById(userId);
+                    var user = jwtUserDetailsService.loadUserById(userId);
+                    System.out.println(user != null
+                            ? ("Kullanıcı bulundu: " + user.getUsername())
+                            : "Geçerli token fakat kullanıcı bulunamadı");
+
                     if (user != null) {
-                        UsernamePasswordAuthenticationToken auth =
-                                new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                        var auth = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                         auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(auth);
+                        System.out.println("SecurityContext’e authentication yerleştirildi.");
+                    } else {
+                        SecurityContextHolder.clearContext();
+                        System.out.println("SecurityContext temizlendi (kullanıcı yok).");
                     }
+                } else if (SecurityContextHolder.getContext().getAuthentication() != null) {
+                    System.out.println("Authentication zaten mevcut, tekrar set edilmedi.");
                 }
+            } else {
+                System.out.println("Token yok veya geçersiz.");
+                SecurityContextHolder.clearContext();
             }
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
-            // loglayabilirsiniz
+            System.out.println("Token doğrulama sırasında hata: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            e.printStackTrace();
         } finally {
             filterChain.doFilter(request, response);
         }
+
     }
 
     private String extractToken(HttpServletRequest request) {
@@ -65,3 +81,28 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return null;
     }
 }
+
+
+/*
+Old Try-catch block
+        try {
+String jwt = extractToken(request);
+
+            if (StringUtils.hasText(jwt) && jwtGenerate.validateToken(jwt)) {
+UUID userId = jwtGenerate.getUserIdFromToken(jwt);
+
+                if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+UserDetails user = jwtUserDetailsService.loadUserById(userId);
+                    if (user != null) {
+UsernamePasswordAuthenticationToken auth =
+        new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+                    }
+                            }
+                            }
+                            } catch (Exception e) {
+        SecurityContextHolder.clearContext();
+        } finally {
+                filterChain.doFilter(request, response);
+        } */

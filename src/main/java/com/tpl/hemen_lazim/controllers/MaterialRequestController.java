@@ -60,27 +60,21 @@ public class MaterialRequestController {
         return ResponseEntity.ok(new ApiResponse<>("OK", list));
     }
 
-    // Status ops: cancel
     @PostMapping("/{id}/cancel")
-    public ResponseEntity<ApiResponse<Void>> cancel(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<String>> cancel(@PathVariable UUID id) {
         var me = SecurityUtils.currentUserId();
-        service.cancel(me, id);
-        return ResponseEntity.ok(new ApiResponse<>("Cancelled"));
+        return service.cancel(me, id);
     }
 
-    // Status ops: complete
     @PostMapping("/{id}/complete")
-    public ResponseEntity<ApiResponse<Void>> complete(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<String>> complete(@PathVariable UUID id) {
         var me = SecurityUtils.currentUserId();
-        service.complete(me, id);
-        return ResponseEntity.ok(new ApiResponse<>("Completed"));
+        return service.complete(me, id);
     }
 
-    // Delete (owner)
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<String>> delete(@PathVariable UUID id) {
         var me = SecurityUtils.currentUserId();
-        service.delete(me, id);
-        return ResponseEntity.ok(new ApiResponse<>("Deleted"));
+        return service.delete(me, id);
     }
 }

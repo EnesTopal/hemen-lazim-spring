@@ -1,14 +1,18 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.MaterialRequest;
 import com.tpl.hemen_lazim.model.User;
 import com.tpl.hemen_lazim.model.DTOs.MaterialRequestCreateDTO;
 import com.tpl.hemen_lazim.model.DTOs.MaterialRequestDTO;
 import com.tpl.hemen_lazim.model.enums.Category;
 import com.tpl.hemen_lazim.model.enums.RequestStatus;
+import com.tpl.hemen_lazim.model.enums.Role;
 import com.tpl.hemen_lazim.repositories.MaterialRequestRepository;
 import com.tpl.hemen_lazim.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -104,38 +108,94 @@ public class MaterialRequestService {
     }
 
     // ---------- Status ops ----------
+    // import org.springframework.http.ResponseEntity;
+// import org.springframework.http.HttpStatus;
+// import com.tpl.hemen_lazim.model.ApiResponse;
+
     @Transactional
-    public void cancel(UUID requesterId, UUID requestId) {
-        MaterialRequest r = mustBeOwner(requesterId, requestId);
-        if (r.getStatus() != RequestStatus.OPEN) {
-            throw new IllegalStateException("Only OPEN requests can be cancelled");
+    public ResponseEntity<ApiResponse<String>> cancel(UUID requesterId, UUID requestId) {
+        try {
+            MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
+
+            if (r.getStatus() != RequestStatus.OPEN) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>("Only OPEN requests can be cancelled"));
+            }
+
+            r.setStatus(RequestStatus.CANCELLED);
+            return ResponseEntity.ok(new ApiResponse<>("Request cancelled successfully"));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponse<>(e.getMessage()));
+        } catch (IllegalArgumentException e) { // "Request not found"
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Unexpected error"));
         }
-        r.setStatus(RequestStatus.CANCELLED);
     }
 
     @Transactional
-    public void complete(UUID requesterId, UUID requestId) {
-        MaterialRequest r = mustBeOwner(requesterId, requestId);
-        if (r.getStatus() != RequestStatus.OPEN) {
-            throw new IllegalStateException("Only OPEN requests can be completed");
+    public ResponseEntity<ApiResponse<String>> complete(UUID requesterId, UUID requestId) {
+        try {
+            MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
+
+            if (r.getStatus() != RequestStatus.OPEN) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>("Only OPEN requests can be completed"));
+            }
+
+            r.setStatus(RequestStatus.COMPLETED);
+            return ResponseEntity.ok(new ApiResponse<>("Request completed successfully"));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponse<>(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Unexpected error"));
         }
-        r.setStatus(RequestStatus.COMPLETED);
     }
 
     @Transactional
-    public void delete(UUID requesterId, UUID requestId) {
-        MaterialRequest r = mustBeOwner(requesterId, requestId);
-        materialRequestRepository.delete(r);
+    public ResponseEntity<ApiResponse<String>> delete(UUID requesterId, UUID requestId) {
+        try {
+            MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
+            materialRequestRepository.delete(r);
+            return ResponseEntity.ok(new ApiResponse<>("Request deleted successfully"));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponse<>(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("Unexpected error"));
+        }
     }
+
 
     // ---------- Helpers ----------
-    private MaterialRequest mustBeOwner(UUID requesterId, UUID requestId) {
+    private MaterialRequest mustBeOwnerOrAdmin(UUID requesterId, UUID requestId) {
         MaterialRequest r = materialRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+
+        User requester = userRepository.findById(requesterId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (requester.getRole() == Role.ADMIN) {
+            return r;
+        }
+
         if (r.getRequester() == null || r.getRequester().getId() == null ||
                 !r.getRequester().getId().equals(requesterId)) {
-            throw new AccessDeniedException("Only owner can modify this request");
+            throw new AccessDeniedException("Only owner or admin can modify this request");
         }
+
         return r;
     }
 

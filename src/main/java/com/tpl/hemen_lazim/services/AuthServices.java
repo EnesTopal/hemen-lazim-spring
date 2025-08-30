@@ -67,12 +67,12 @@ public class AuthServices {
     }
 
     public ResponseEntity<ApiResponse<UserDTO>> register(CreateUserDTO registerRequest) {
-        // Normalizasyon
+
         String userName = safeTrim(registerRequest.getUserName());
         String email = normalizeEmail(registerRequest.getEmail());
         String rawPassword = safe(registerRequest.getUserPassword());
 
-        // Basit kontroller (Controller katmanında @Valid de kullanabilirsin)
+        System.out.println(userName + "" + email + " " + rawPassword);
         if (userName == null || userName.isBlank()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponse<>("Username is required", null));

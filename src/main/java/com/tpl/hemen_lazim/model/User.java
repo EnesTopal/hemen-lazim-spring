@@ -32,7 +32,7 @@ public class User {
     @Column(name = "role", nullable = false, length = 20)
     private Role role = Role.USER;
 
-    @OneToMany(mappedBy = "requester", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE, orphanRemoval = false)
+    @OneToMany(mappedBy = "requester", fetch = FetchType.LAZY, orphanRemoval = false)
     private Set<MaterialRequest> requests;
 
     // JWT tarafında ileride işine yarayabilir, şart değil ama koydum

@@ -2,6 +2,8 @@ package com.tpl.hemen_lazim.controllers;
 
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.DTOs.CreateUserDTO;
+import com.tpl.hemen_lazim.model.DTOs.RefreshRequest;
+import com.tpl.hemen_lazim.model.DTOs.TokenResponse;
 import com.tpl.hemen_lazim.model.DTOs.UserDTO;
 import com.tpl.hemen_lazim.services.AuthServices;
 import jakarta.validation.Valid;
@@ -19,12 +21,22 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<String>> login(@Valid @RequestBody CreateUserDTO loginRequest) {
+    public ResponseEntity<ApiResponse<TokenResponse>> login(@Valid @RequestBody CreateUserDTO loginRequest) {
         return authServices.login(loginRequest);
     }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserDTO>> register(@Valid @RequestBody CreateUserDTO registerRequest) {
         return authServices.register(registerRequest);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<TokenResponse>> refresh(@RequestBody RefreshRequest req) {
+        return authServices.refresh(req);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody RefreshRequest req) {
+        return authServices.logout(req);
     }
 }

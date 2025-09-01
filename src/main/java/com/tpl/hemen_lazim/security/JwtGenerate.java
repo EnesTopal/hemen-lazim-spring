@@ -29,6 +29,16 @@ public class JwtGenerate {
                 .compact();
     }
 
+    public String generateJwtTokenFromUserId(java.util.UUID userId){
+        Date expireDate = new Date(System.currentTimeMillis() + EXPIRES_IN);
+        return Jwts.builder()
+                .setSubject(userId.toString())
+                .setIssuedAt(new Date())
+                .setExpiration(expireDate)
+                .signWith(SignatureAlgorithm.HS512, APP_SECRET)
+                .compact();
+    }
+
     public UUID getUserIdFromToken(String token){
         Claims claims = Jwts.parser()
                 .setSigningKey(APP_SECRET)

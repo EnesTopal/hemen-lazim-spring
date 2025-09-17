@@ -33,26 +33,75 @@ public class MaterialRequestService {
     private static final int DEFAULT_RADIUS_M = 1500;
 
     // ---------- Create ----------
+//    @Transactional
+//    public MaterialRequestDTO create(UUID requesterId, MaterialRequestCreateDTO dto) {
+//        User requester = userRepository.findById(requesterId)
+//                .orElseThrow(() -> new IllegalArgumentException("Requester not found"));
+//
+//        MaterialRequest entity = new MaterialRequest();
+//        entity.setRequester(requester);
+//        entity.setTitle(dto.title());
+//        entity.setDescription(dto.description());
+//        entity.setCategory(dto.category() != null ? dto.category() : Category.OTHER);
+//        entity.setQuantity(dto.quantity());
+//        entity.setUnit(dto.unit());
+//        entity.setLatitude(dto.latitude());
+//        entity.setLongitude(dto.longitude());
+//        entity.setRadiusMeters(dto.radiusMeters() != null ? dto.radiusMeters() : DEFAULT_RADIUS_M);
+//        entity.setStatus(RequestStatus.OPEN);
+//        entity.setExpiresAt(dto.expiresAt()); // @PrePersist default +1h veriyor
+//
+//        MaterialRequest saved = materialRequestRepository.save(entity);
+//        return toDto(saved);
+//    }
+
     @Transactional
     public MaterialRequestDTO create(UUID requesterId, MaterialRequestCreateDTO dto) {
-        User requester = userRepository.findById(requesterId)
-                .orElseThrow(() -> new IllegalArgumentException("Requester not found"));
+        System.out.println("=== CREATE REQUEST START ===");
 
-        MaterialRequest entity = new MaterialRequest();
-        entity.setRequester(requester);
-        entity.setTitle(dto.title());
-        entity.setDescription(dto.description());
-        entity.setCategory(dto.category() != null ? dto.category() : Category.OTHER);
-        entity.setQuantity(dto.quantity());
-        entity.setUnit(dto.unit());
-        entity.setLatitude(dto.latitude());
-        entity.setLongitude(dto.longitude());
-        entity.setRadiusMeters(dto.radiusMeters() != null ? dto.radiusMeters() : DEFAULT_RADIUS_M);
-        entity.setStatus(RequestStatus.OPEN);
-        entity.setExpiresAt(dto.expiresAt()); // @PrePersist default +1h veriyor
+        try {
+            User requester = userRepository.findById(requesterId)
+                    .orElseThrow(() -> new IllegalArgumentException("Requester not found"));
 
-        MaterialRequest saved = materialRequestRepository.save(entity);
-        return toDto(saved);
+            System.out.println("Requester ID: " + requester.getId());
+            System.out.println("DTO received: " + dto);
+
+            MaterialRequest entity = new MaterialRequest();
+            entity.setRequester(requester);
+            entity.setTitle(dto.title());
+            entity.setDescription(dto.description());
+            entity.setCategory(dto.category() != null ? dto.category() : Category.OTHER);
+            entity.setQuantity(dto.quantity());
+            entity.setUnits(dto.units());
+            entity.setLatitude(dto.latitude());
+            entity.setLongitude(dto.longitude());
+            entity.setRadiusMeters(dto.radiusMeters() != null ? dto.radiusMeters() : DEFAULT_RADIUS_M);
+            entity.setStatus(RequestStatus.OPEN);
+            // expiresInHours işleme
+            Instant expiresAt;
+            try {
+                if (dto.expiresInHours() != null && !dto.expiresInHours().isBlank()) {
+                    int hours = Integer.parseInt(dto.expiresInHours().trim());
+                    expiresAt = Instant.now().plusSeconds(hours * 3600L);
+                } else {
+                    expiresAt = Instant.now().plusSeconds(3600L);
+                }
+            } catch (Exception ex) {
+                expiresAt = Instant.now().plusSeconds(3600L);
+            }
+            entity.setExpiresAt(expiresAt);
+
+            MaterialRequest saved = materialRequestRepository.save(entity);
+            MaterialRequestDTO result = toDto(saved);
+            System.out.println("=== CREATE REQUEST SUCCESS ===");
+            return result;
+
+        } catch (Exception e) {
+            System.out.println("=== CREATE REQUEST FAILED ===");
+            System.out.println("Error: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to create material request: " + e.getMessage(), e);
+        }
     }
 
     // ---------- Get by id ----------
@@ -208,7 +257,7 @@ public class MaterialRequestService {
                 r.getDescription(),
                 r.getCategory(),
                 r.getQuantity(),
-                r.getUnit(),
+                r.getUnits(),
                 r.getLatitude(),
                 r.getLongitude(),
                 r.getRadiusMeters(),
@@ -223,9 +272,9 @@ public class MaterialRequestService {
         double R = 6371000d;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLng = Math.toRadians(lng2 - lng1);
-        double a = Math.sin(dLat/2) * Math.sin(dLat/2)
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLng/2) * Math.sin(dLng/2);
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
         return 2 * R * Math.asin(Math.sqrt(a));
     }
 

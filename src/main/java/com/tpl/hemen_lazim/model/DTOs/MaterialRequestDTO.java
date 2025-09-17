@@ -2,7 +2,7 @@ package com.tpl.hemen_lazim.model.DTOs;
 
 import com.tpl.hemen_lazim.model.enums.Category;
 import com.tpl.hemen_lazim.model.enums.RequestStatus;
-import com.tpl.hemen_lazim.model.enums.Unit;
+import com.tpl.hemen_lazim.model.enums.Units;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -16,7 +16,7 @@ public record MaterialRequestDTO(
         String description,
         Category category,
         Integer quantity,
-        Unit unit,
+        Units units,
 
         Double latitude,
         Double longitude,

@@ -2,7 +2,7 @@ package com.tpl.hemen_lazim.model;
 
 import com.tpl.hemen_lazim.model.enums.Category;
 import com.tpl.hemen_lazim.model.enums.RequestStatus;
-import com.tpl.hemen_lazim.model.enums.Unit;
+import com.tpl.hemen_lazim.model.enums.Units;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.Getter;
@@ -45,8 +45,8 @@ public class MaterialRequest {
     private Integer quantity;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "unit", length = 20)
-    private Unit unit = Unit.PARCA;
+    @Column(name = "units", length = 20)
+    private Units units = Units.PARCA;
 
     // Konum (şimdilik basit lat/lng + opsiyonel geohash)
     @Column(name = "latitude", nullable = false)

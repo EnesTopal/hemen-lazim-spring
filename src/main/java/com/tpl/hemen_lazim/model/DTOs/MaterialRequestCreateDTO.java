@@ -1,7 +1,7 @@
 package com.tpl.hemen_lazim.model.DTOs;
 
 import com.tpl.hemen_lazim.model.enums.Category;
-import com.tpl.hemen_lazim.model.enums.Unit;
+import com.tpl.hemen_lazim.model.enums.Units;
 import jakarta.validation.constraints.*;
 
 import java.time.Instant;
@@ -20,7 +20,7 @@ public record MaterialRequestCreateDTO(
         Integer quantity,
 
         @NotNull
-        Unit unit,
+        Units units,
 
         @NotNull @DecimalMin("-90.0") @DecimalMax("90.0")
         Double latitude,
@@ -31,5 +31,5 @@ public record MaterialRequestCreateDTO(
         @Positive
         Integer radiusMeters,
 
-        Instant expiresAt
+        String expiresInHours
 ) {}

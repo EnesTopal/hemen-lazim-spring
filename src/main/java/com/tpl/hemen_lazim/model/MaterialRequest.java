@@ -46,7 +46,7 @@ public class MaterialRequest {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "units", length = 20)
-    private Units units = Units.PARCA;
+    private Units units = Units.PARÇA;
 
     // Konum (şimdilik basit lat/lng + opsiyonel geohash)
     @Column(name = "latitude", nullable = false)

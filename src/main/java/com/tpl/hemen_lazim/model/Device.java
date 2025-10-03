@@ -27,13 +27,26 @@ public class Device {
     @Column(name = "fcm_token", length = 4096, unique = true)
     private String fcmToken;
 
+    @Column(name = "device_type", length = 50)
+    private String deviceType; // "ANDROID", "IOS", etc.
+
+    @Column(name = "device_name", length = 255)
+    private String deviceName; // User-friendly device name or model
+
     @Column(name = "push_enabled", nullable = false)
     private boolean pushEnabled = true;
 
     @Column(name = "last_seen_at")
     private Instant lastSeenAt;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = Instant.now();
+        if (lastSeenAt == null) {
+            lastSeenAt = Instant.now();
+        }
+    }
 }
-
-
-

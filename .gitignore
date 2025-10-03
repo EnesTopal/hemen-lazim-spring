@@ -6,6 +6,10 @@ target/
 src/main/java/com/tpl/hemen_lazim/controllers/AdminController.java
 src/main/java/com/tpl/hemen_lazim/services/AdminService.java
 
+config/
+*firebase*.json
+*adminsdk*.json
+
 ### STS ###
 .apt_generated
 .classpath

@@ -35,9 +35,8 @@ public class User {
     @OneToMany(mappedBy = "requester", fetch = FetchType.LAZY, orphanRemoval = false)
     private Set<MaterialRequest> requests;
 
-    // JWT tarafında ileride işine yarayabilir, şart değil ama koydum
-//    @Column(name = "token_version", nullable = false)
-//    private int tokenVersion = 0;
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Device> devices;
 
 }
 

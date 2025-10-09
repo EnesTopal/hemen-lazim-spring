@@ -50,10 +50,10 @@ public class FirebaseService {
     /**
      * Send notification to a specific device using FCM token
      */
-    public void sendNotification(String fcmToken, String title, String body, Map<String, String> data) {
+    public boolean sendNotification(String fcmToken, String title, String body, Map<String, String> data) {
         if (FirebaseApp.getApps().isEmpty()) {
             log.warn("Firebase not initialized. Cannot send notification.");
-            return;
+            return false;
         }
 
         try {
@@ -71,16 +71,26 @@ public class FirebaseService {
             Message message = messageBuilder.build();
             String response = FirebaseMessaging.getInstance().send(message);
             log.info("Successfully sent message: {}", response);
+            return true;
+        } catch (com.google.firebase.messaging.FirebaseMessagingException e) {
+            // Check if token is unregistered/invalid
+            if (e.getMessagingErrorCode() == com.google.firebase.messaging.MessagingErrorCode.UNREGISTERED) {
+                log.warn("FCM token is unregistered/invalid: {}", fcmToken);
+                return false;
+            }
+            log.error("Failed to send notification to token: {}", fcmToken, e);
+            return false;
         } catch (Exception e) {
             log.error("Failed to send notification to token: {}", fcmToken, e);
+            return false;
         }
     }
 
     /**
      * Send notification without data payload
      */
-    public void sendNotification(String fcmToken, String title, String body) {
-        sendNotification(fcmToken, title, body, null);
+    public boolean sendNotification(String fcmToken, String title, String body) {
+        return sendNotification(fcmToken, title, body, null);
     }
 }
 

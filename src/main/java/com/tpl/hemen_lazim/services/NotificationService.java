@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,19 +61,38 @@ public class NotificationService {
             data.put("requestId", requestId.toString());
             data.put("supplierId", supplierId.toString());
 
-            // Send notification to all devices
+            // Send notification to all devices and track invalid tokens
             int successCount = 0;
+            List<String> invalidTokens = new ArrayList<>();
+            
             for (Device device : devices) {
-                try {
-                    firebaseService.sendNotification(device.getFcmToken(), "Yeni Tedarik Teklifi", notificationBody, data);
+                boolean success = firebaseService.sendNotification(
+                    device.getFcmToken(), 
+                    "Yeni Tedarik Teklifi", 
+                    notificationBody, 
+                    data
+                );
+                
+                if (success) {
                     successCount++;
-                } catch (Exception e) {
-                    log.error("Failed to send notification to device {}", device.getId(), e);
+                } else {
+                    // Token is invalid, mark for removal
+                    invalidTokens.add(device.getFcmToken());
                 }
             }
 
-            log.info("Sent supply offer notification for request {} to {} devices of requester {}", 
-                    requestId, successCount, requesterId);
+            // Remove invalid tokens from database
+            for (String invalidToken : invalidTokens) {
+                try {
+                    deviceService.disableDevice(invalidToken);
+                    log.info("Disabled invalid FCM token: {}", invalidToken);
+                } catch (Exception e) {
+                    log.error("Failed to disable invalid token: {}", invalidToken, e);
+                }
+            }
+
+            log.info("Sent supply offer notification for request {} to {} devices of requester {} ({} invalid tokens removed)", 
+                    requestId, successCount, requesterId, invalidTokens.size());
         } catch (Exception e) {
             log.error("Failed to send supply offer notification", e);
             throw new RuntimeException("Failed to send notification: " + e.getMessage());
@@ -92,16 +112,35 @@ public class NotificationService {
             }
 
             int successCount = 0;
+            List<String> invalidTokens = new ArrayList<>();
+            
             for (Device device : devices) {
-                try {
-                    firebaseService.sendNotification(device.getFcmToken(), title, body, data);
+                boolean success = firebaseService.sendNotification(
+                    device.getFcmToken(), 
+                    title, 
+                    body, 
+                    data
+                );
+                
+                if (success) {
                     successCount++;
-                } catch (Exception e) {
-                    log.error("Failed to send notification to device {}", device.getId(), e);
+                } else {
+                    invalidTokens.add(device.getFcmToken());
                 }
             }
 
-            log.info("Sent custom notification to {} devices of user {}", successCount, userId);
+            // Remove invalid tokens
+            for (String invalidToken : invalidTokens) {
+                try {
+                    deviceService.disableDevice(invalidToken);
+                    log.info("Disabled invalid FCM token: {}", invalidToken);
+                } catch (Exception e) {
+                    log.error("Failed to disable invalid token: {}", invalidToken, e);
+                }
+            }
+
+            log.info("Sent custom notification to {} devices of user {} ({} invalid tokens removed)", 
+                    successCount, userId, invalidTokens.size());
         } catch (Exception e) {
             log.error("Failed to send custom notification", e);
             throw new RuntimeException("Failed to send notification: " + e.getMessage());

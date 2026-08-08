@@ -23,8 +23,8 @@ public class NotificationService {
     private final MaterialRequestRepository requestRepository;
 
     public NotificationService(FirebaseService firebaseService,
-                             DeviceService deviceService,
-                             MaterialRequestRepository requestRepository) {
+            DeviceService deviceService,
+            MaterialRequestRepository requestRepository) {
         this.firebaseService = firebaseService;
         this.deviceService = deviceService;
         this.requestRepository = requestRepository;
@@ -51,28 +51,40 @@ public class NotificationService {
             String quantity = request.getQuantity() != null ? request.getQuantity().toString() : "";
             String unit = request.getUnits() != null ? request.getUnits().name() : "";
             String title = request.getTitle();
-            
-            String notificationBody = String.format("Birisi %s %s %s ürün isteğinizi karşılamak istiyor", 
+
+            String notificationBody = String.format("Birisi %s %s %s ürün isteğinizi karşılamak istiyor",
                     quantity, unit, title).trim().replaceAll("\\s+", " ");
+
+            // Calculate Room ID deterministically
+            String sId = supplierId.toString();
+            String rId = requesterId.toString();
+            String roomId;
+            if (sId.compareTo(rId) < 0) {
+                roomId = sId + "_" + rId;
+            } else {
+                roomId = rId + "_" + sId;
+            }
 
             // Add data payload for navigation
             Map<String, String> data = new HashMap<>();
             data.put("type", "supply_offer");
             data.put("requestId", requestId.toString());
             data.put("supplierId", supplierId.toString());
+            // Add fields expected by MainActivity
+            data.put("roomId", roomId);
+            data.put("otherUserId", supplierId.toString()); // For the requester, the other user is the supplier
 
             // Send notification to all devices and track invalid tokens
             int successCount = 0;
             List<String> invalidTokens = new ArrayList<>();
-            
+
             for (Device device : devices) {
                 boolean success = firebaseService.sendNotification(
-                    device.getFcmToken(), 
-                    "Yeni Tedarik Teklifi", 
-                    notificationBody, 
-                    data
-                );
-                
+                        device.getFcmToken(),
+                        "Yeni Tedarik Teklifi",
+                        notificationBody,
+                        data);
+
                 if (success) {
                     successCount++;
                 } else {
@@ -91,7 +103,8 @@ public class NotificationService {
                 }
             }
 
-            log.info("Sent supply offer notification for request {} to {} devices of requester {} ({} invalid tokens removed)", 
+            log.info(
+                    "Sent supply offer notification for request {} to {} devices of requester {} ({} invalid tokens removed)",
                     requestId, successCount, requesterId, invalidTokens.size());
         } catch (Exception e) {
             log.error("Failed to send supply offer notification", e);
@@ -113,15 +126,14 @@ public class NotificationService {
 
             int successCount = 0;
             List<String> invalidTokens = new ArrayList<>();
-            
+
             for (Device device : devices) {
                 boolean success = firebaseService.sendNotification(
-                    device.getFcmToken(), 
-                    title, 
-                    body, 
-                    data
-                );
-                
+                        device.getFcmToken(),
+                        title,
+                        body,
+                        data);
+
                 if (success) {
                     successCount++;
                 } else {
@@ -139,7 +151,7 @@ public class NotificationService {
                 }
             }
 
-            log.info("Sent custom notification to {} devices of user {} ({} invalid tokens removed)", 
+            log.info("Sent custom notification to {} devices of user {} ({} invalid tokens removed)",
                     successCount, userId, invalidTokens.size());
         } catch (Exception e) {
             log.error("Failed to send custom notification", e);

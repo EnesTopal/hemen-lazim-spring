@@ -58,6 +58,10 @@ public class ChatController {
         log.info("Persisting message from {} to {} in room {}", chatMessage.getSenderId(), chatMessage.getRecipientId(),
                 chatMessage.getRoomId());
 
+        // Id her zaman sunucuda üretilir; client'ın (varsayılan 0 dahil) gönderdiği
+        // id'ye güvenilirse Hibernate save()'i update sanıp var olmayan satırı
+        // arar ve StaleObjectStateException fırlatır.
+        chatMessage.setId(null);
         chatMessage.setServerTimestamp(Instant.now().toEpochMilli());
         Message savedMessage = messageRepository.save(chatMessage);
         log.info("Saved message with ID: {}", savedMessage.getId());

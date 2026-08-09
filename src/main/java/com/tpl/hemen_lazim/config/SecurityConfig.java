@@ -88,6 +88,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
+                        // WebSocket handshake'i HTTP seviyesinde serbest: STOMP istemcisi
+                        // JWT'yi handshake header'ında değil CONNECT frame'inde taşıyor.
+                        // Kimlik doğrulama WebSocketConfig'teki channel interceptor'da yapılır
+                        // ve geçerli token olmayan CONNECT reddedilir.
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()

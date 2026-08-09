@@ -3,6 +3,7 @@ package com.tpl.hemen_lazim.services;
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.DTOs.CreateUserDTO;
 import com.tpl.hemen_lazim.model.DTOs.UserDTO;
+import com.tpl.hemen_lazim.model.DTOs.UserSummaryDTO;
 import com.tpl.hemen_lazim.model.User;
 import com.tpl.hemen_lazim.model.enums.Role;
 import com.tpl.hemen_lazim.repositories.UserRepository;
@@ -48,6 +49,12 @@ public class UserServices {
     /** Eski proje uyumluluğu için: kullanıcıyı userName ile getir (gerekirse). */
     public User getOneUserByUserName(String userName) {
         return userRepository.findByUserName(userName).orElse(null);
+    }
+
+    /** Chat gibi ekranlarda başka bir kullanıcının adını göstermek için minimal bilgi. */
+    public Optional<UserSummaryDTO> getUserSummary(UUID userId) {
+        return userRepository.findById(userId)
+                .map(u -> new UserSummaryDTO(u.getId(), u.getUserName()));
     }
 
     public boolean existsByUserName(String userName) {

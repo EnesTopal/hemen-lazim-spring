@@ -1,9 +1,12 @@
 package com.tpl.hemen_lazim.configuration;
 
 import com.tpl.hemen_lazim.security.JwtGenerate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -22,6 +25,8 @@ import java.util.UUID;
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    private static final Logger log = LoggerFactory.getLogger(WebSocketConfig.class);
+
     private final JwtGenerate jwtGenerate;
 
     public WebSocketConfig(JwtGenerate jwtGenerate) {
@@ -37,9 +42,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // SockJS YOK: Android istemcisi (StompProtocolAndroid) sadece ham WebSocket
+        // konuşuyor, SockJS negotiation'ı desteklemiyor. .withSockJS() ile birlikte
+        // istemcinin bağlandığı "/ws" ham WebSocket upgrade'i kabul etmiyordu (SockJS
+        // bunun için "/ws/websocket" alt path'ini bekler), bu yüzden STOMP CONNECT hiç
+        // gerçekleşmiyor, dolayısıyla canlı push de asla çalışmıyordu.
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
+                .setAllowedOriginPatterns("*");
     }
 
     @Override
@@ -56,16 +65,23 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                         token = authHeader.substring(7);
                     }
 
-                    if (StringUtils.hasText(token) && jwtGenerate.validateToken(token)) {
-                        UUID userId = jwtGenerate.getUserIdFromToken(token);
-                        if (userId != null) {
-                            // Principal adı UUID string olmalı: convertAndSendToUser(recipientId, ...)
-                            // her yerde (Android tarafı dahil) kullanıcıları UUID string ile hedefliyor,
-                            // username ile değil.
-                            String userIdStr = userId.toString();
-                            accessor.setUser((Principal) () -> userIdStr);
-                        }
+                    UUID userId = (StringUtils.hasText(token) && jwtGenerate.validateToken(token))
+                            ? jwtGenerate.getUserIdFromToken(token)
+                            : null;
+
+                    // /ws HTTP seviyesinde permitAll olduğu için tek kimlik kontrolü burası:
+                    // geçerli token yoksa bağlantı kurulmadan reddedilir.
+                    if (userId == null) {
+                        log.warn("STOMP CONNECT reddedildi: geçerli JWT yok");
+                        throw new MessagingException("Unauthorized STOMP connection");
                     }
+
+                    // Principal adı UUID string olmalı: convertAndSendToUser(recipientId, ...)
+                    // her yerde (Android tarafı dahil) kullanıcıları UUID string ile hedefliyor,
+                    // username ile değil.
+                    String userIdStr = userId.toString();
+                    accessor.setUser((Principal) () -> userIdStr);
+                    log.info("STOMP CONNECT kabul edildi, principal={}", userIdStr);
                 }
                 return message;
             }

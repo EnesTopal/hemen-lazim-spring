@@ -35,7 +35,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/user", "/topic", "/queue");
+        // "/user" bilerek listede değil: kullanıcıya özel hedefler
+        // UserDestinationMessageHandler tarafından "/queue/messages-user{session}"
+        // biçimine çevrilip broker'a öyle veriliyor, yani "/queue" yeterli.
+        config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
     }

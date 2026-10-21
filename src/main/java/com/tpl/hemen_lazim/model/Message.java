@@ -32,4 +32,15 @@ public class Message {
 
     @Column(nullable = false)
     private Long serverTimestamp; // Unix timestamp
+
+    /**
+     * Alıcının bu mesajı görüp görmediği. Birebir sohbette her mesajın tek bir alıcısı
+     * olduğu için okunma durumunu mesajın kendisinde tutmak yeterli; ayrı bir
+     * "oda-kullanıcı okuma imleci" tablosuna gerek yok.
+     *
+     * Okunmamış rozetinin uygulama kapatılıp açıldığında da doğru görünmesi
+     * gerektiğinden bu bilgi sunucuda kalıcı olmak zorunda.
+     */
+    @Column(name = "is_read", nullable = false)
+    private boolean read = false;
 }

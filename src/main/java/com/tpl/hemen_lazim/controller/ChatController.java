@@ -1,5 +1,6 @@
 package com.tpl.hemen_lazim.controller;
 
+import com.tpl.hemen_lazim.model.DTOs.RoomUnread;
 import com.tpl.hemen_lazim.model.Message;
 import com.tpl.hemen_lazim.repository.MessageRepository;
 import com.tpl.hemen_lazim.security.SecurityUtils;
@@ -22,12 +23,15 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
 public class ChatController {
 
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
+
+    private static final int MAX_SYNC_BATCH = 200;
 
     private final SimpMessagingTemplate messagingTemplate;
     private final MessageRepository messageRepository;
@@ -89,11 +93,34 @@ public class ChatController {
 
     @GetMapping("/api/chat/sync")
     public List<Message> syncMessages(@RequestParam String roomId, @RequestParam Long lastReceivedMessageId) {
-        log.info("Syncing messages for room {} since ID {}", roomId, lastReceivedMessageId);
+        // Üst sınır: istemci lastReceivedMessageId=0 ile gelirse (ör. geçmiş yüklemesi
+        // başarısız olmuşsa) tüm odayı tek seferde çekmesin.
         List<Message> messages = messageRepository.findByRoomIdAndIdGreaterThanOrderByIdAsc(roomId,
-                lastReceivedMessageId);
-        log.info("Found {} messages", messages.size());
+                lastReceivedMessageId, PageRequest.of(0, MAX_SYNC_BATCH));
         return messages;
+    }
+
+    /**
+     * Oda bazında okunmamış mesaj sayıları. Hem sohbet listesindeki kırmızı nokta hem de
+     * alt bardaki rozet bunu kullanır; okunma durumu sunucuda tutulduğu için uygulama
+     * kapalıyken gelen mesajlar da açılışta doğru görünür.
+     */
+    @GetMapping("/api/chat/unread")
+    public Map<String, Long> getUnreadCounts() {
+        String me = SecurityUtils.currentUserId().toString();
+        Map<String, Long> counts = messageRepository.countUnreadByRoom(me).stream()
+                .collect(Collectors.toMap(RoomUnread::getRoomId, RoomUnread::getUnreadCount));
+        log.info("Unread counts for {}: {}", me, counts);
+        return counts;
+    }
+
+    /** Kullanıcı odayı açtığında/okuduğunda çağrılır. */
+    @PostMapping("/api/chat/read")
+    public ResponseEntity<Void> markRoomRead(@RequestParam String roomId) {
+        String me = SecurityUtils.currentUserId().toString();
+        int updated = messageRepository.markRoomRead(roomId, me);
+        log.info("Marked {} messages read in room {} for {}", updated, roomId, me);
+        return ResponseEntity.noContent().build();
     }
 
     /**

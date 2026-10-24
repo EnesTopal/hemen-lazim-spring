@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -61,51 +62,24 @@ public class MaterialRequestService {
 
     @Transactional
     public MaterialRequestDTO create(UUID requesterId, MaterialRequestCreateDTO dto) {
-        System.out.println("=== CREATE REQUEST START ===");
+        User requester = userRepository.findById(requesterId)
+                .orElseThrow(() -> new IllegalArgumentException("Requester not found"));
 
-        try {
-            User requester = userRepository.findById(requesterId)
-                    .orElseThrow(() -> new IllegalArgumentException("Requester not found"));
+        MaterialRequest entity = new MaterialRequest();
+        entity.setRequester(requester);
+        entity.setTitle(dto.title());
+        entity.setDescription(dto.description());
+        entity.setCategory(dto.category() != null ? dto.category() : Category.DIGER);
+        entity.setQuantity(dto.quantity());
+        entity.setUnits(dto.units());
+        entity.setLatitude(dto.latitude());
+        entity.setLongitude(dto.longitude());
+        entity.setRadiusMeters(dto.radiusMeters() != null ? dto.radiusMeters() : DEFAULT_RADIUS_M);
+        entity.setStatus(RequestStatus.OPEN);
+        // Süre DTO'da [MIN_DURATION_MIN, MAX_DURATION_MIN] aralığında doğrulanmış gelir
+        entity.setExpiresAt(Instant.now().plus(dto.expiresInMinutes(), ChronoUnit.MINUTES));
 
-            System.out.println("Requester ID: " + requester.getId());
-            System.out.println("DTO received: " + dto);
-
-            MaterialRequest entity = new MaterialRequest();
-            entity.setRequester(requester);
-            entity.setTitle(dto.title());
-            entity.setDescription(dto.description());
-            entity.setCategory(dto.category() != null ? dto.category() : Category.DIGER);
-            entity.setQuantity(dto.quantity());
-            entity.setUnits(dto.units());
-            entity.setLatitude(dto.latitude());
-            entity.setLongitude(dto.longitude());
-            entity.setRadiusMeters(dto.radiusMeters() != null ? dto.radiusMeters() : DEFAULT_RADIUS_M);
-            entity.setStatus(RequestStatus.OPEN);
-            // expiresInHours işleme
-            Instant expiresAt;
-            try {
-                if (dto.expiresInHours() != null && !dto.expiresInHours().isBlank()) {
-                    int hours = Integer.parseInt(dto.expiresInHours().trim());
-                    expiresAt = Instant.now().plusSeconds(hours * 3600L);
-                } else {
-                    expiresAt = Instant.now().plusSeconds(3600L);
-                }
-            } catch (Exception ex) {
-                expiresAt = Instant.now().plusSeconds(3600L);
-            }
-            entity.setExpiresAt(expiresAt);
-
-            MaterialRequest saved = materialRequestRepository.save(entity);
-            MaterialRequestDTO result = toDto(saved);
-            System.out.println("=== CREATE REQUEST SUCCESS ===");
-            return result;
-
-        } catch (Exception e) {
-            System.out.println("=== CREATE REQUEST FAILED ===");
-            System.out.println("Error: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("Failed to create material request: " + e.getMessage(), e);
-        }
+        return toDto(materialRequestRepository.save(entity));
     }
 
     // ---------- Get by id ----------

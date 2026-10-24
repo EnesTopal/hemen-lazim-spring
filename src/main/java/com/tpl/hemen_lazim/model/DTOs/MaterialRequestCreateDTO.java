@@ -32,5 +32,6 @@ public record MaterialRequestCreateDTO(
         @Min(RequestLimits.MIN_RADIUS_M) @Max(RequestLimits.MAX_RADIUS_M)
         Integer radiusMeters,
 
-        String expiresInHours
+        @NotNull @Min(RequestLimits.MIN_DURATION_MIN) @Max(RequestLimits.MAX_DURATION_MIN)
+        Integer expiresInMinutes
 ) {}

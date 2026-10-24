@@ -1,10 +1,12 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.model.DTOs.MaterialRequestCreateDTO;
 import com.tpl.hemen_lazim.model.DTOs.MaterialRequestDTO;
 import com.tpl.hemen_lazim.model.MaterialRequest;
 import com.tpl.hemen_lazim.model.User;
 import com.tpl.hemen_lazim.model.enums.Category;
 import com.tpl.hemen_lazim.model.enums.RequestStatus;
+import com.tpl.hemen_lazim.model.enums.Units;
 import com.tpl.hemen_lazim.repositories.MaterialRequestRepository;
 import com.tpl.hemen_lazim.repositories.UserRepository;
 import com.tpl.hemen_lazim.util.GeoTestSupport;
@@ -14,8 +16,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.AdditionalAnswers.returnsFirstArg;
 
 @ExtendWith(MockitoExtension.class)
 class MaterialRequestServiceTest {
@@ -107,6 +112,24 @@ class MaterialRequestServiceTest {
 
         verify(materialRequestRepository).findInBoundingBox(anyDouble(), anyDouble(), anyDouble(), anyDouble(),
                 eq(RequestStatus.OPEN), any(Instant.class), eq(ME));
+    }
+
+    @Test
+    void createSetsTheExpiryFromTheGivenMinutes() {
+        User me = new User();
+        me.setId(ME);
+        when(userRepository.findById(ME)).thenReturn(Optional.of(me));
+        when(materialRequestRepository.save(any(MaterialRequest.class))).then(returnsFirstArg());
+        var body = new MaterialRequestCreateDTO("un", null, Category.YEMEK_MALZEMESI, 2, Units.KG,
+                LAT, LNG, 1_500, 135);
+
+        Instant before = Instant.now();
+        MaterialRequestDTO created = service.create(ME, body);
+        Instant after = Instant.now();
+
+        Duration minutes135 = Duration.ofMinutes(135);
+        assertTrue(!created.expiresAt().isBefore(before.plus(minutes135))
+                && !created.expiresAt().isAfter(after.plus(minutes135)));
     }
 
     private void repositoryReturns(MaterialRequest... candidates) {

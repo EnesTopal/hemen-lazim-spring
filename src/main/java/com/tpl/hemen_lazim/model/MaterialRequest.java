@@ -79,7 +79,7 @@ public class MaterialRequest {
     void onCreate() {
         this.createdAt = Instant.now();
         if (this.radiusMeters == null) this.radiusMeters = RequestLimits.DEFAULT_RADIUS_M;
-        if (this.expiresAt == null) this.expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
+        if (this.expiresAt == null) this.expiresAt = Instant.now().plus(RequestLimits.DEFAULT_DURATION_MIN, ChronoUnit.MINUTES);
     }
 
 }

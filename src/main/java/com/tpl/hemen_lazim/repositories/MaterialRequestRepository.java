@@ -3,6 +3,7 @@ package com.tpl.hemen_lazim.repositories;
 import com.tpl.hemen_lazim.model.MaterialRequest;
 import com.tpl.hemen_lazim.model.enums.RequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -36,4 +37,11 @@ public interface MaterialRequestRepository extends JpaRepository<MaterialRequest
             @Param("now") Instant now,
             @Param("excludedRequesterId") UUID excludedRequesterId
     );
+
+    // Süresi geçmiş açık talepleri tek sorguda kapatır (RequestExpiryJob)
+    @Modifying
+    @Query("UPDATE MaterialRequest r SET r.status = :expired WHERE r.status = :open AND r.expiresAt < :now")
+    int expireOverdue(@Param("open") RequestStatus open,
+                      @Param("expired") RequestStatus expired,
+                      @Param("now") Instant now);
 }

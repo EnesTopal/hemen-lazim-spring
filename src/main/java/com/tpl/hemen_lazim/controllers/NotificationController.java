@@ -2,6 +2,7 @@ package com.tpl.hemen_lazim.controllers;
 
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.DTOs.DeviceRegisterReq;
+import com.tpl.hemen_lazim.model.DTOs.DeviceUnregisterReq;
 import com.tpl.hemen_lazim.model.DTOs.SupplyOfferNotificationDTO;
 import com.tpl.hemen_lazim.security.SecurityUtils;
 import com.tpl.hemen_lazim.services.DeviceService;
@@ -37,6 +38,19 @@ public class NotificationController {
         );
         
         return ResponseEntity.ok(new ApiResponse<>("Device registered successfully"));
+    }
+
+    /**
+     * Unregister this device from the current user (called on logout).
+     * The token travels in the body so it never ends up in URLs or access logs.
+     */
+    @PostMapping("/fcm-token/unregister")
+    public ResponseEntity<ApiResponse<String>> unregisterDevice(@Valid @RequestBody DeviceUnregisterReq body) {
+        var userId = SecurityUtils.currentUserId();
+
+        deviceService.unregisterDevice(userId, body.fcmToken());
+
+        return ResponseEntity.ok(new ApiResponse<>("Device unregistered"));
     }
 
     /**

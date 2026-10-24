@@ -67,6 +67,20 @@ public class DeviceService {
     }
 
     /**
+     * Remove this user's device on logout so it stops receiving the account's notifications.
+     * A token that belongs to another user is left untouched.
+     */
+    @Transactional
+    public void unregisterDevice(UUID userId, String fcmToken) {
+        deviceRepository.findByFcmToken(fcmToken)
+                .filter(device -> device.getUser().getId().equals(userId))
+                .ifPresent(device -> {
+                    deviceRepository.delete(device);
+                    log.info("Unregistered device {} for user {}", device.getId(), userId);
+                });
+    }
+
+    /**
      * Update last seen time for a device
      */
     @Transactional

@@ -3,6 +3,7 @@ package com.tpl.hemen_lazim.services;
 import com.tpl.hemen_lazim.model.Device;
 import com.tpl.hemen_lazim.model.MaterialRequest;
 import com.tpl.hemen_lazim.repositories.MaterialRequestRepository;
+import com.tpl.hemen_lazim.util.ChatRooms;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -55,15 +56,7 @@ public class NotificationService {
             String notificationBody = String.format("Birisi %s %s %s ürün isteğinizi karşılamak istiyor",
                     quantity, unit, title).trim().replaceAll("\\s+", " ");
 
-            // Calculate Room ID deterministically
-            String sId = supplierId.toString();
-            String rId = requesterId.toString();
-            String roomId;
-            if (sId.compareTo(rId) < 0) {
-                roomId = sId + "_" + rId;
-            } else {
-                roomId = rId + "_" + sId;
-            }
+            String roomId = ChatRooms.roomIdFor(supplierId, requesterId);
 
             // Add data payload for navigation
             Map<String, String> data = new HashMap<>();

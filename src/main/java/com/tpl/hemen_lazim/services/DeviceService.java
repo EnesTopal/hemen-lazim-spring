@@ -63,7 +63,7 @@ public class DeviceService {
     @Transactional
     public void disableDevice(String fcmToken) {
         deviceRepository.disableByToken(fcmToken);
-        log.info("Disabled device with token: {}", fcmToken);
+        log.info("Disabled a device with an invalid FCM token");
     }
 
     /**

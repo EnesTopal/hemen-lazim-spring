@@ -75,13 +75,13 @@ public class FirebaseService {
         } catch (com.google.firebase.messaging.FirebaseMessagingException e) {
             // Check if token is unregistered/invalid
             if (e.getMessagingErrorCode() == com.google.firebase.messaging.MessagingErrorCode.UNREGISTERED) {
-                log.warn("FCM token is unregistered/invalid: {}", fcmToken);
+                log.warn("FCM token is unregistered/invalid");
                 return false;
             }
-            log.error("Failed to send notification to token: {}", fcmToken, e);
+            log.error("Failed to send notification", e);
             return false;
         } catch (Exception e) {
-            log.error("Failed to send notification to token: {}", fcmToken, e);
+            log.error("Failed to send notification", e);
             return false;
         }
     }

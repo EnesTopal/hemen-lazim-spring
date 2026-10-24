@@ -5,6 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,6 +21,8 @@ import java.util.UUID;
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
+
     private final JwtGenerate jwtGenerate;
     private final JwtUserDetailsService jwtUserDetailsService;
 
@@ -32,41 +36,33 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+        // Token değeri hiçbir koşulda loglanmaz: loglara düşen geçerli bir JWT, süresi
+        // dolana kadar o kullanıcı adına istek atmaya yeter.
         try {
             String jwt = extractToken(request);
-            System.out.println("Authorization header’dan çıkarılan JWT: " + (jwt != null ? jwt : "yok"));
 
             if (StringUtils.hasText(jwt) && jwtGenerate.validateToken(jwt)) {
-                System.out.println("Token alındı ve geçerli: " + jwt);
-
                 UUID userId = jwtGenerate.getUserIdFromToken(jwt);
 
                 if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     var user = jwtUserDetailsService.loadUserById(userId);
-                    System.out.println(user != null
-                            ? ("Kullanıcı bulundu: " + user.getUsername())
-                            : "Geçerli token fakat kullanıcı bulunamadı");
 
                     if (user != null) {
                         var auth = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                         auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(auth);
-                        System.out.println("SecurityContext’e authentication yerleştirildi.");
+                        log.debug("Kimlik doğrulandı: {}", userId);
                     } else {
                         SecurityContextHolder.clearContext();
-                        System.out.println("SecurityContext temizlendi (kullanıcı yok).");
+                        log.debug("Geçerli token fakat kullanıcı bulunamadı: {}", userId);
                     }
-                } else if (SecurityContextHolder.getContext().getAuthentication() != null) {
-                    System.out.println("Authentication zaten mevcut, tekrar set edilmedi.");
                 }
             } else {
-                System.out.println("Token yok veya geçersiz.");
                 SecurityContextHolder.clearContext();
             }
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
-            System.out.println("Token doğrulama sırasında hata: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-            e.printStackTrace();
+            log.warn("Token doğrulama sırasında hata: {} - {}", e.getClass().getSimpleName(), e.getMessage());
         } finally {
             filterChain.doFilter(request, response);
         }

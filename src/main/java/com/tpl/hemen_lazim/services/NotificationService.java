@@ -97,9 +97,9 @@ public class NotificationService {
             for (String invalidToken : invalidTokens) {
                 try {
                     deviceService.disableDevice(invalidToken);
-                    log.info("Disabled invalid FCM token: {}", invalidToken);
+                    log.info("Disabled an invalid FCM token of user {}", requesterId);
                 } catch (Exception e) {
-                    log.error("Failed to disable invalid token: {}", invalidToken, e);
+                    log.error("Failed to disable an invalid FCM token of user {}", requesterId, e);
                 }
             }
 
@@ -145,9 +145,9 @@ public class NotificationService {
             for (String invalidToken : invalidTokens) {
                 try {
                     deviceService.disableDevice(invalidToken);
-                    log.info("Disabled invalid FCM token: {}", invalidToken);
+                    log.info("Disabled an invalid FCM token of user {}", userId);
                 } catch (Exception e) {
-                    log.error("Failed to disable invalid token: {}", invalidToken, e);
+                    log.error("Failed to disable an invalid FCM token of user {}", userId, e);
                 }
             }
 

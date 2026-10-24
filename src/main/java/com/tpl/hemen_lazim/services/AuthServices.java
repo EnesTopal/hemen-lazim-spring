@@ -17,6 +17,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 @Service
 public class AuthServices {
@@ -29,6 +32,16 @@ public class AuthServices {
 
     @Value("${jwt.access.minutes:15}")
     private long accessMinutes; // sadece expiresIn hesaplamak için
+
+    // E-posta ve şifre kuralları uygulamadaki AuthValidator ile aynı; istemciyi atlayan
+    // istekler de aynı kurala takılsın.
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).{8,}$");
+    private static final int USERNAME_MIN = 3;
+    private static final int USERNAME_MAX = 50;
+    private static final int EMAIL_MAX = 190;        // users.email sütunu
+    private static final int BCRYPT_MAX_BYTES = 72;  // BCrypt daha uzununu reddediyor, kayıt 500 dönüyordu
 
     public AuthServices(AuthenticationManager authenticationManager,
                         JwtGenerate jwtGenerate,
@@ -85,13 +98,11 @@ public class AuthServices {
         String email = normalizeEmail(registerRequest.getEmail());
         String rawPassword = safe(registerRequest.getUserPassword());
 
-        if (userName == null || userName.isBlank())
-            return ResponseEntity.badRequest().body(new ApiResponse<>("Username is required", null));
-        if (email == null || email.isBlank())
-            return ResponseEntity.badRequest().body(new ApiResponse<>("Email is required", null));
-        if (rawPassword == null || rawPassword.isBlank())
-            return ResponseEntity.badRequest().body(new ApiResponse<>("Password is required", null));
+        String invalid = validateRegistration(userName, email, rawPassword);
+        if (invalid != null)
+            return ResponseEntity.badRequest().body(new ApiResponse<>(invalid, null));
 
+        // Uygulama "Email already in use" metnini arayıp e-posta alanında gösteriyor (AuthViewModel)
         if (userServices.existsByUserName(userName))
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>("Username already in use", null));
         if (userServices.existsByEmail(email))
@@ -144,7 +155,22 @@ public class AuthServices {
     }
 
     // --- util'ler ---
-    private static String normalizeEmail(String email) { return email == null ? null : email.trim().toLowerCase(); }
+
+    /** Kurala uymayan alan için kullanıcıya gösterilecek mesaj; hepsi geçerliyse null. */
+    private static String validateRegistration(String userName, String email, String rawPassword) {
+        if (userName == null || userName.length() < USERNAME_MIN || userName.length() > USERNAME_MAX)
+            return "Kullanıcı adı " + USERNAME_MIN + " ile " + USERNAME_MAX + " karakter arasında olmalı";
+        if (email == null || email.length() > EMAIL_MAX || !EMAIL_PATTERN.matcher(email).matches())
+            return "Geçersiz e-posta";
+        if (!PASSWORD_PATTERN.matcher(rawPassword).matches())
+            return "Şifre en az 8 karakter olmalı, harf ve rakam içermeli";
+        if (rawPassword.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES)
+            return "Şifre çok uzun";
+        return null;
+    }
+
+    // Locale.ROOT: Türkçe yerel ayarlı JVM'de "I" "ı" olur ve e-posta bozulur
+    private static String normalizeEmail(String email) { return email == null ? null : email.trim().toLowerCase(Locale.ROOT); }
     private static String safeTrim(String s) { return s == null ? null : s.trim(); }
     private static String safe(String s) { return s == null ? "" : s; }
 }

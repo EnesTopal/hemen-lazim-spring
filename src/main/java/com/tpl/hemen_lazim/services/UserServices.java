@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -75,8 +76,9 @@ public class UserServices {
         );
     }
 
+    // AuthServices ile aynı: Locale.ROOT, yoksa Türkçe yerel ayarda "I" "ı" olur
     private static String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
     private static String safeTrim(String s) {

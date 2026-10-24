@@ -4,7 +4,9 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.Notification;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -48,12 +50,18 @@ public class FirebaseService {
     }
 
     /**
+     * Bir push denemesinin sonucu. Cihaz yalnızca INVALID_TOKEN'da kapatılmalı: FAILED ağ, kota
+     * ya da Firebase'in hiç yapılandırılmamış olması gibi geçici bir durum, token sağlam.
+     */
+    public enum SendResult { SENT, INVALID_TOKEN, FAILED }
+
+    /**
      * Send notification to a specific device using FCM token
      */
-    public boolean sendNotification(String fcmToken, String title, String body, Map<String, String> data) {
+    public SendResult sendNotification(String fcmToken, String title, String body, Map<String, String> data) {
         if (FirebaseApp.getApps().isEmpty()) {
             log.warn("Firebase not initialized. Cannot send notification.");
-            return false;
+            return SendResult.FAILED;
         }
 
         try {
@@ -71,25 +79,26 @@ public class FirebaseService {
             Message message = messageBuilder.build();
             String response = FirebaseMessaging.getInstance().send(message);
             log.info("Successfully sent message: {}", response);
-            return true;
-        } catch (com.google.firebase.messaging.FirebaseMessagingException e) {
-            // Check if token is unregistered/invalid
-            if (e.getMessagingErrorCode() == com.google.firebase.messaging.MessagingErrorCode.UNREGISTERED) {
-                log.warn("FCM token is unregistered/invalid");
-                return false;
+            return SendResult.SENT;
+        } catch (FirebaseMessagingException e) {
+            // Token artık bu uygulamaya ait değil: silinmiş ya da başka bir Firebase projesine ait
+            MessagingErrorCode code = e.getMessagingErrorCode();
+            if (code == MessagingErrorCode.UNREGISTERED || code == MessagingErrorCode.SENDER_ID_MISMATCH) {
+                log.warn("FCM token is no longer valid: {}", code);
+                return SendResult.INVALID_TOKEN;
             }
             log.error("Failed to send notification", e);
-            return false;
+            return SendResult.FAILED;
         } catch (Exception e) {
             log.error("Failed to send notification", e);
-            return false;
+            return SendResult.FAILED;
         }
     }
 
     /**
      * Send notification without data payload
      */
-    public boolean sendNotification(String fcmToken, String title, String body) {
+    public SendResult sendNotification(String fcmToken, String title, String body) {
         return sendNotification(fcmToken, title, body, null);
     }
 }

@@ -60,14 +60,12 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<String>> sendSupplyOfferNotification(
             @Valid @RequestBody SupplyOfferNotificationDTO body) {
         var supplierId = SecurityUtils.currentUserId();
-        
-        notificationService.sendSupplyOfferNotification(
-                body.requestId(),
-                body.requesterId(),
-                supplierId
-        );
-        
-        return ResponseEntity.ok(new ApiResponse<>("Notification sent successfully"));
+
+        boolean notifiedNow = notificationService.sendSupplyOfferNotification(body.requestId(), supplierId);
+
+        // Uygulama bu mesajı gösterip iki durumda da sohbete geçiyor
+        String message = notifiedNow ? "Talep sahibine haber verildi" : "Talep sahibine zaten haber verildi";
+        return ResponseEntity.ok(new ApiResponse<>(message));
     }
 }
 

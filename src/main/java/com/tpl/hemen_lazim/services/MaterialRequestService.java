@@ -70,7 +70,7 @@ public class MaterialRequestService {
             entity.setRequester(requester);
             entity.setTitle(dto.title());
             entity.setDescription(dto.description());
-            entity.setCategory(dto.category() != null ? dto.category() : Category.OTHER);
+            entity.setCategory(dto.category() != null ? dto.category() : Category.DIGER);
             entity.setQuantity(dto.quantity());
             entity.setUnits(dto.units());
             entity.setLatitude(dto.latitude());

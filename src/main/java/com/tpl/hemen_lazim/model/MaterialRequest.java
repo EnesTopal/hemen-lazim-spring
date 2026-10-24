@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -37,16 +39,20 @@ public class MaterialRequest {
     @Column(name = "description", length = 1000)
     private String description;
 
+    // Kategori ve birim VARCHAR tutulur: Hibernate MySQL'de varsayılan olarak native ENUM
+    // sütunu açıyor ve ddl-auto=update onu güncellemiyor; her yeni değer ALTER TABLE isterdi.
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "category", nullable = false, length = 40)
-    private Category category = Category.OTHER;
+    private Category category = Category.DIGER;
 
     @Column(name = "quantity")
     private Integer quantity;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "units", length = 20)
-    private Units units = Units.PARÇA;
+    private Units units = Units.PARCA;
 
     // Konum (şimdilik basit lat/lng + opsiyonel geohash)
     @Column(name = "latitude", nullable = false)

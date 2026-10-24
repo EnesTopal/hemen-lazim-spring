@@ -49,7 +49,7 @@ public class NotificationService {
 
             // Build notification message with quantity
             String quantity = request.getQuantity() != null ? request.getQuantity().toString() : "";
-            String unit = request.getUnits() != null ? request.getUnits().name() : "";
+            String unit = request.getUnits() != null ? request.getUnits().getLabel() : "";
             String title = request.getTitle();
 
             String notificationBody = String.format("Birisi %s %s %s ürün isteğinizi karşılamak istiyor",

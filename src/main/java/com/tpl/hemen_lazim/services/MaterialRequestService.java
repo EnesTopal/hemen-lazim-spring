@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -86,7 +87,7 @@ public class MaterialRequestService {
     @Transactional(readOnly = true)
     public MaterialRequestDTO get(UUID requestId) {
         MaterialRequest r = materialRequestRepository.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Talep bulunamadı"));
         return toDto(r);
     }
 

@@ -56,7 +56,8 @@ public class MaterialRequestController {
             @RequestParam(required = false) Integer radiusMeters,
             @RequestParam(required = false) Category category
     ) {
-        var list = service.listNearby(lat, lng, radiusMeters, category);
+        var me = SecurityUtils.currentUserId();
+        var list = service.listNearby(me, lat, lng, radiusMeters, category);
         return ResponseEntity.ok(new ApiResponse<>("OK", list));
     }
 

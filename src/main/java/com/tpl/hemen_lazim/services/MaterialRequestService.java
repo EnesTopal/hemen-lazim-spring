@@ -2,6 +2,7 @@ package com.tpl.hemen_lazim.services;
 
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.MaterialRequest;
+import com.tpl.hemen_lazim.model.RequestLimits;
 import com.tpl.hemen_lazim.model.User;
 import com.tpl.hemen_lazim.model.DTOs.MaterialRequestCreateDTO;
 import com.tpl.hemen_lazim.model.DTOs.MaterialRequestDTO;
@@ -10,6 +11,7 @@ import com.tpl.hemen_lazim.model.enums.RequestStatus;
 import com.tpl.hemen_lazim.model.enums.Role;
 import com.tpl.hemen_lazim.repositories.MaterialRequestRepository;
 import com.tpl.hemen_lazim.repositories.UserRepository;
+import com.tpl.hemen_lazim.util.GeoUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,7 +32,9 @@ public class MaterialRequestService {
     private final MaterialRequestRepository materialRequestRepository;
     private final UserRepository userRepository;
 
-    private static final int DEFAULT_RADIUS_M = 1500;
+    private static final int DEFAULT_RADIUS_M = RequestLimits.DEFAULT_RADIUS_M;
+    // Yoğun bölgelerde yanıt sınırsız büyümesin; en yakınlar önce
+    private static final int NEARBY_LIMIT = 200;
 
     // ---------- Create ----------
 //    @Transactional
@@ -125,34 +129,35 @@ public class MaterialRequestService {
     }
 
     // ---------- Nearby (ANLIK) ----------
-    // Kullanıcıdan gelen (lat, lng, myRadiusMeters) ile: distance(req, me) <= req.radius + myRadius
+    // İki daire kesişiyorsa eşleşir: distance(req, me) <= req.radius + myRadius.
+    // Arayanın kendi talepleri sorguda elenir.
     @Transactional(readOnly = true)
-    public List<MaterialRequestDTO> listNearby(double myLat,
+    public List<MaterialRequestDTO> listNearby(UUID me,
+                                               double myLat,
                                                double myLng,
                                                Integer myRadiusMeters,
                                                Category optionalCategory) {
 
-        int rMe = (myRadiusMeters == null || myRadiusMeters <= 0) ? DEFAULT_RADIUS_M : myRadiusMeters;
+        int rMe = clampRadius(myRadiusMeters != null ? myRadiusMeters : RequestLimits.DEFAULT_RADIUS_M);
 
-        // Bounding-box daraltması (yaklaşık)
-        double[] box = boundingBox(myLat, myLng, rMe + 5000); // biraz geniş tutuyoruz; kesin filtre aşağıda
+        // Ön filtre kutusu en büyük talep yarıçapını da kapsamalı: aksi halde uzaktaki geniş
+        // yarıçaplı bir talep, daireler kesişse bile aday listesine hiç girmez.
+        double[] box = GeoUtils.boundingBox(myLat, myLng, rMe + RequestLimits.MAX_RADIUS_M);
         double minLat = box[0], maxLat = box[1], minLng = box[2], maxLng = box[3];
 
         List<MaterialRequest> candidates = materialRequestRepository.findInBoundingBox(
-                minLat, maxLat, minLng, maxLng, RequestStatus.OPEN, Instant.now()
+                minLat, maxLat, minLng, maxLng, RequestStatus.OPEN, Instant.now(), me
         );
 
-        // Kesişim kontrolü: d(center_me, center_req) <= r_me + r_req
+        record Candidate(MaterialRequest request, double distance) {}
+
         return candidates.stream()
                 .filter(r -> optionalCategory == null || r.getCategory() == optionalCategory)
-                .filter(r -> {
-                    double d = haversineMeters(myLat, myLng, r.getLatitude(), r.getLongitude());
-                    int sumR = rMe + (r.getRadiusMeters() != null ? r.getRadiusMeters() : DEFAULT_RADIUS_M);
-                    return d <= sumR;
-                })
-                .sorted(Comparator.comparingDouble(r ->
-                        haversineMeters(myLat, myLng, r.getLatitude(), r.getLongitude())))
-                .map(this::toDto)
+                .map(r -> new Candidate(r, GeoUtils.haversineMeters(myLat, myLng, r.getLatitude(), r.getLongitude())))
+                .filter(c -> c.distance() <= rMe + radiusOf(c.request()))
+                .sorted(Comparator.comparingDouble(Candidate::distance))
+                .limit(NEARBY_LIMIT)
+                .map(c -> toDto(c.request(), c.distance()))
                 .collect(Collectors.toList());
     }
 
@@ -248,7 +253,20 @@ public class MaterialRequestService {
         return r;
     }
 
+    private static int clampRadius(int radiusMeters) {
+        return Math.max(RequestLimits.MIN_RADIUS_M, Math.min(RequestLimits.MAX_RADIUS_M, radiusMeters));
+    }
+
+    private static int radiusOf(MaterialRequest r) {
+        return r.getRadiusMeters() != null ? r.getRadiusMeters() : RequestLimits.DEFAULT_RADIUS_M;
+    }
+
     private MaterialRequestDTO toDto(MaterialRequest r) {
+        return toDto(r, null);
+    }
+
+    // distanceMeters yalnızca arayana göre hesaplandığı yerde (nearby) dolu
+    private MaterialRequestDTO toDto(MaterialRequest r, Double distanceMeters) {
         return new MaterialRequestDTO(
                 r.getId(),
                 r.getRequester() != null ? r.getRequester().getId() : null,
@@ -263,27 +281,8 @@ public class MaterialRequestService {
                 r.getRadiusMeters(),
                 r.getStatus(),
                 r.getExpiresAt(),
-                r.getCreatedAt()
+                r.getCreatedAt(),
+                distanceMeters
         );
-    }
-
-    // Haversine (metre)
-    private static double haversineMeters(double lat1, double lng1, double lat2, double lng2) {
-        double R = 6371000d;
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLng = Math.toRadians(lng2 - lng1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        return 2 * R * Math.asin(Math.sqrt(a));
-    }
-
-    // Yaklaşık bounding-box (derece)
-    private static double[] boundingBox(double lat, double lng, int radiusMeters) {
-        double dLat = radiusMeters / 111_000d;
-        double dLng = radiusMeters / (111_000d * Math.cos(Math.toRadians(lat)));
-        double minLat = lat - dLat, maxLat = lat + dLat;
-        double minLng = lng - dLng, maxLng = lng + dLng;
-        return new double[]{minLat, maxLat, minLng, maxLng};
     }
 }

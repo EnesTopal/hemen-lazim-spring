@@ -17,12 +17,15 @@ public interface MaterialRequestRepository extends JpaRepository<MaterialRequest
     List<MaterialRequest> findAllByRequester_Id(UUID requesterId);
     List<MaterialRequest> findAllByRequester_IdAndStatus(UUID requesterId, RequestStatus status);
 
+    // Kaba ön filtre; kesişim kontrolü serviste. Talep sahibinin adı DTO'ya girdiği için
+    // birlikte çekilir (yoksa her satır için ayrı sorgu). Arayanın kendi talepleri gelmez.
     @Query("""
-           SELECT r FROM MaterialRequest r
+           SELECT r FROM MaterialRequest r JOIN FETCH r.requester
            WHERE r.latitude  BETWEEN :minLat AND :maxLat
              AND r.longitude BETWEEN :minLng AND :maxLng
              AND r.status = :status
              AND (r.expiresAt IS NULL OR r.expiresAt > :now)
+             AND r.requester.id <> :excludedRequesterId
            """)
     List<MaterialRequest> findInBoundingBox(
             @Param("minLat") double minLat,
@@ -30,6 +33,7 @@ public interface MaterialRequestRepository extends JpaRepository<MaterialRequest
             @Param("minLng") double minLng,
             @Param("maxLng") double maxLng,
             @Param("status") RequestStatus status,
-            @Param("now") Instant now
+            @Param("now") Instant now,
+            @Param("excludedRequesterId") UUID excludedRequesterId
     );
 }

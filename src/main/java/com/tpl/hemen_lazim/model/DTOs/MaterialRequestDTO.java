@@ -24,5 +24,8 @@ public record MaterialRequestDTO(
 
         RequestStatus status,
         Instant expiresAt,
-        Instant createdAt
+        Instant createdAt,
+
+        // Arayana uzaklık; yalnızca /nearby yanıtında dolu
+        Double distanceMeters
 ) {}

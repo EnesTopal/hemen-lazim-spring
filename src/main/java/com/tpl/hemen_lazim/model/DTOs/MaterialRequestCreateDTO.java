@@ -1,5 +1,6 @@
 package com.tpl.hemen_lazim.model.DTOs;
 
+import com.tpl.hemen_lazim.model.RequestLimits;
 import com.tpl.hemen_lazim.model.enums.Category;
 import com.tpl.hemen_lazim.model.enums.Units;
 import jakarta.validation.constraints.*;
@@ -28,7 +29,7 @@ public record MaterialRequestCreateDTO(
         @NotNull @DecimalMin("-180.0") @DecimalMax("180.0")
         Double longitude,
 
-        @Positive
+        @Min(RequestLimits.MIN_RADIUS_M) @Max(RequestLimits.MAX_RADIUS_M)
         Integer radiusMeters,
 
         String expiresInHours

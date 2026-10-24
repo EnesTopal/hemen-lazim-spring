@@ -78,7 +78,7 @@ public class MaterialRequest {
     @PrePersist
     void onCreate() {
         this.createdAt = Instant.now();
-        if (this.radiusMeters == null) this.radiusMeters = 1500;
+        if (this.radiusMeters == null) this.radiusMeters = RequestLimits.DEFAULT_RADIUS_M;
         if (this.expiresAt == null) this.expiresAt = Instant.now().plus(1, ChronoUnit.HOURS);
     }
 

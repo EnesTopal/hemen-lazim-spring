@@ -3,11 +3,12 @@ package com.tpl.hemen_lazim.services;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
-import com.google.firebase.messaging.Notification;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -56,9 +58,18 @@ public class FirebaseService {
     public enum SendResult { SENT, INVALID_TOKEN, FAILED }
 
     /**
+     * Telefonda uygulamanın kendi dilinde oluşan bildirim: başlık ve metin, uygulamanın
+     * strings.xml'indeki anahtarlar; argümanlar metindeki %1$s, %2$s... yerine geçer.
+     * Anahtar adları uygulamayla sözleşmedir.
+     */
+    public record LocalizedNotification(String titleKey, List<String> titleArgs,
+                                        String bodyKey, List<String> bodyArgs) {
+    }
+
+    /**
      * Send notification to a specific device using FCM token
      */
-    public SendResult sendNotification(String fcmToken, String title, String body, Map<String, String> data) {
+    public SendResult sendNotification(String fcmToken, LocalizedNotification notification, Map<String, String> data) {
         if (FirebaseApp.getApps().isEmpty()) {
             log.warn("Firebase not initialized. Cannot send notification.");
             return SendResult.FAILED;
@@ -67,9 +78,15 @@ public class FirebaseService {
         try {
             Message.Builder messageBuilder = Message.builder()
                     .setToken(fcmToken)
-                    .setNotification(Notification.builder()
-                            .setTitle(title)
-                            .setBody(body)
+                    // Düz başlık ve metin bilerek yok: FCM onları yerelleştirme anahtarından önce
+                    // kullanır ve bildirim telefonun değil sunucunun dilinde kalırdı
+                    .setAndroidConfig(AndroidConfig.builder()
+                            .setNotification(AndroidNotification.builder()
+                                    .setTitleLocalizationKey(notification.titleKey())
+                                    .addAllTitleLocalizationArgs(notification.titleArgs())
+                                    .setBodyLocalizationKey(notification.bodyKey())
+                                    .addAllBodyLocalizationArgs(notification.bodyArgs())
+                                    .build())
                             .build());
 
             if (data != null && !data.isEmpty()) {
@@ -93,13 +110,6 @@ public class FirebaseService {
             log.error("Failed to send notification", e);
             return SendResult.FAILED;
         }
-    }
-
-    /**
-     * Send notification without data payload
-     */
-    public SendResult sendNotification(String fcmToken, String title, String body) {
-        return sendNotification(fcmToken, title, body, null);
     }
 }
 

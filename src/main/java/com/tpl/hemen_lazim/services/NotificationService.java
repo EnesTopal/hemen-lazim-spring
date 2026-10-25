@@ -27,6 +27,10 @@ public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
+    // Uygulamanın strings.xml'indeki anahtarlar (her dilde ayrı metin); adları değiştirilmemeli
+    static final String SUPPLY_OFFER_TITLE_KEY = "notif_supply_offer_title";
+    static final String SUPPLY_OFFER_BODY_KEY = "notif_supply_offer_body";
+
     private final FirebaseService firebaseService;
     private final DeviceService deviceService;
     private final MaterialRequestRepository requestRepository;
@@ -79,13 +83,9 @@ public class NotificationService {
             return false;
         }
 
-        // Build notification message with quantity
-        String quantity = request.getQuantity() != null ? request.getQuantity().toString() : "";
-        String unit = request.getUnits() != null ? request.getUnits().getLabel() : "";
-        String title = request.getTitle();
-
-        String notificationBody = String.format("Birisi %s %s %s ürün isteğinizi karşılamak istiyor",
-                quantity, unit, title).trim().replaceAll("\\s+", " ");
+        // Metin telefonda, uygulamanın dilinde oluşur; argüman yalnızca talebin başlığı
+        var notification = new FirebaseService.LocalizedNotification(
+                SUPPLY_OFFER_TITLE_KEY, List.of(), SUPPLY_OFFER_BODY_KEY, List.of(request.getTitle()));
 
         // Add data payload for navigation
         Map<String, String> data = new HashMap<>();
@@ -96,7 +96,7 @@ public class NotificationService {
         data.put("roomId", ChatRooms.roomIdFor(supplierId, requesterId));
         data.put("otherUserId", supplierId.toString()); // For the requester, the other user is the supplier
 
-        int delivered = pushToUser(requesterId, "Yeni Tedarik Teklifi", notificationBody, data);
+        int delivered = pushToUser(requesterId, notification, data);
         if (delivered == 0) {
             // Hiçbir cihaza ulaşmadı (cihaz yok ya da FCM hatası): sonraki dokunuş yeniden denesin
             notifiedOffers.remove(offer);
@@ -107,14 +107,6 @@ public class NotificationService {
         return true;
     }
 
-    /**
-     * Send a custom notification to all user's devices
-     */
-    public void sendCustomNotification(UUID userId, String title, String body, Map<String, String> data) {
-        int delivered = pushToUser(userId, title, body, data);
-        log.info("Sent custom notification to {} devices of user {}", delivered, userId);
-    }
-
     /** Talebi biten teklif kayıtlarını unutur; o taleplere zaten yeni teklif verilemiyor. */
     @Scheduled(fixedDelay = 3_600_000)
     public void forgetFinishedOffers() {
@@ -123,7 +115,7 @@ public class NotificationService {
     }
 
     /** Sends to all enabled devices of the user and returns how many accepted the push. */
-    private int pushToUser(UUID userId, String title, String body, Map<String, String> data) {
+    private int pushToUser(UUID userId, FirebaseService.LocalizedNotification notification, Map<String, String> data) {
         List<Device> devices = deviceService.getEnabledDevicesForUser(userId);
 
         if (devices.isEmpty()) {
@@ -135,7 +127,7 @@ public class NotificationService {
         List<String> invalidTokens = new ArrayList<>();
 
         for (Device device : devices) {
-            switch (firebaseService.sendNotification(device.getFcmToken(), title, body, data)) {
+            switch (firebaseService.sendNotification(device.getFcmToken(), notification, data)) {
                 case SENT -> delivered++;
                 case INVALID_TOKEN -> invalidTokens.add(device.getFcmToken());
                 case FAILED -> {

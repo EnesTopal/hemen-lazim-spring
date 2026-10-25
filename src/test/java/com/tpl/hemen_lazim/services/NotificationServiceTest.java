@@ -8,6 +8,7 @@ import com.tpl.hemen_lazim.model.User;
 import com.tpl.hemen_lazim.model.enums.RequestStatus;
 import com.tpl.hemen_lazim.model.enums.Units;
 import com.tpl.hemen_lazim.repositories.MaterialRequestRepository;
+import com.tpl.hemen_lazim.services.FirebaseService.LocalizedNotification;
 import com.tpl.hemen_lazim.services.FirebaseService.SendResult;
 import com.tpl.hemen_lazim.util.ChatRooms;
 import org.junit.jupiter.api.Test;
@@ -67,9 +68,23 @@ class NotificationServiceTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, String>> data = ArgumentCaptor.forClass(Map.class);
-        verify(firebaseService).sendNotification(eq(TOKEN), anyString(), anyString(), data.capture());
+        verify(firebaseService).sendNotification(eq(TOKEN), any(), data.capture());
         assertEquals(ChatRooms.roomIdFor(SUPPLIER, OWNER), data.getValue().get("roomId"));
         assertEquals(SUPPLIER.toString(), data.getValue().get("otherUserId"));
+    }
+
+    @Test
+    void notificationTextIsLeftToThePhoneLanguage() {
+        givenRequest(RequestStatus.OPEN, Instant.now().plus(Duration.ofHours(1)));
+        givenOwnerDevice(SendResult.SENT);
+
+        notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER);
+
+        ArgumentCaptor<LocalizedNotification> notification = ArgumentCaptor.forClass(LocalizedNotification.class);
+        verify(firebaseService).sendNotification(eq(TOKEN), notification.capture(), any());
+        assertEquals("notif_supply_offer_title", notification.getValue().titleKey());
+        assertEquals("notif_supply_offer_body", notification.getValue().bodyKey());
+        assertEquals(List.of("Un"), notification.getValue().bodyArgs());
     }
 
     @Test
@@ -80,7 +95,7 @@ class NotificationServiceTest {
         assertTrue(notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
         assertFalse(notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
 
-        verify(firebaseService, times(1)).sendNotification(anyString(), anyString(), anyString(), any());
+        verify(firebaseService, times(1)).sendNotification(anyString(), any(), any());
     }
 
     @Test
@@ -91,7 +106,7 @@ class NotificationServiceTest {
         assertTrue(notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
         assertTrue(notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
 
-        verify(firebaseService, times(2)).sendNotification(anyString(), anyString(), anyString(), any());
+        verify(firebaseService, times(2)).sendNotification(anyString(), any(), any());
     }
 
     @Test
@@ -165,7 +180,7 @@ class NotificationServiceTest {
         Device device = new Device();
         device.setFcmToken(TOKEN);
         when(deviceService.getEnabledDevicesForUser(OWNER)).thenReturn(List.of(device));
-        when(firebaseService.sendNotification(eq(TOKEN), anyString(), anyString(), any())).thenReturn(result);
+        when(firebaseService.sendNotification(eq(TOKEN), any(), any())).thenReturn(result);
     }
 
     private static void assertCode(ErrorCode expected, Executable call) {

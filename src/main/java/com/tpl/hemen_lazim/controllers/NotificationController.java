@@ -63,9 +63,10 @@ public class NotificationController {
 
         boolean notifiedNow = notificationService.sendSupplyOfferNotification(body.requestId(), supplierId);
 
-        // Uygulama bu mesajı gösterip iki durumda da sohbete geçiyor
-        String message = notifiedNow ? "Requester notified" : "Requester already notified";
-        return ResponseEntity.ok(new ApiResponse<>(message));
+        // Uygulama koda göre kendi metnini gösterip iki durumda da sohbete geçiyor
+        return ResponseEntity.ok(notifiedNow
+                ? ApiResponse.withCode("REQUESTER_NOTIFIED", "Requester notified")
+                : ApiResponse.withCode("REQUESTER_ALREADY_NOTIFIED", "Requester already notified"));
     }
 }
 

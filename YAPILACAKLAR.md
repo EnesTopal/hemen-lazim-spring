@@ -34,6 +34,9 @@ Uygulamanın notu `hemen-lazim-app` reposunda, aynı adlı dalda `YAPILACAKLAR.m
 
 ## Adımlar
 1. **Dalı al:** `git fetch origin` ve `git checkout refactor-project`.
+   - Bu dalın eski adı `claude/great-thompson-j0w9ae`. GitHub'da hâlâ duruyorsa sil; içeriği bu dalda.
+   - Önce doğrula: `git merge-base --is-ancestor origin/claude/great-thompson-j0w9ae origin/refactor-project` hatasız dönmeli.
+   - Sonra sil: `git push origin --delete claude/great-thompson-j0w9ae`.
 2. **Testler:** `./mvnw test -Dtest='*Test'` (Windows: `mvnw.cmd`). 84 test geçmeli; veritabanı gerekmez, repository testleri H2 kullanıyor.
    - `HemenLazimApplicationTests` (`*Tests`) gerçek MySQL'e bağlanır, `DB_*` değişkenleri tanımlı olmalı. Göçten sonra tam `./mvnw test` ile çalıştırılabilir.
 3. **Eski sunucuyu durdur.**

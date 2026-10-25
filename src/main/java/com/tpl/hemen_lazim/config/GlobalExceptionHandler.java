@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.config;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.DTOs.ApiError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,8 +21,9 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import java.util.List;
 
 /**
- * Hata yanıtlarını tek biçime (ApiError) çevirir. Uygulama hata gövdesinden yalnızca
- * "message" alanını okuyup gösteriyor; Spring'in varsayılan hata gövdesinde bu alan yok.
+ * Hata yanıtlarını tek biçime çevirir: {@code ApiError(code, message, fieldErrors)}. Uygulama
+ * kullanıcıya göstereceği metni {@code code}'dan seçiyor (bkz. ErrorCode); Spring'in kendi
+ * istisnalarında kod, HTTP durumunun adıdır (NOT_FOUND, BAD_REQUEST...).
  *
  * ResponseEntityExceptionHandler'dan türüyor ki Spring'in kendi istisnaları (okunamayan gövde,
  * eksik parametre, 404, 405...) kendi durum kodlarıyla kalsın, en alttaki 500'e düşmesin.
@@ -38,7 +41,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<ApiError.FieldError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
                 .map(e -> new ApiError.FieldError(e.getField(), e.getDefaultMessage()))
                 .toList();
-        ApiError body = new ApiError(codeOf(status), "Validation failed", fieldErrors);
+        ApiError body = new ApiError(ErrorCode.VALIDATION_FAILED.name(), ErrorCode.VALIDATION_FAILED.message(), fieldErrors);
         return handleExceptionInternal(ex, body, headers, status, request);
     }
 
@@ -55,6 +58,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             log.error("İstek işlenemedi", ex);
         }
         return super.handleExceptionInternal(ex, body, headers, statusCode, request);
+    }
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiError> handleApi(ApiException ex) {
+        return ResponseEntity.status(ex.getCode().status())
+                .body(new ApiError(ex.getCode().name(), ex.getMessage(), null));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -74,7 +83,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     // ResponseStatusException'larda mesajı biz yazıyoruz. Diğer istisnaların mesajı iç ayrıntı
     // içerebiliyor, o yüzden duruma göre genel bir metin gider. Metinler İngilizce; arayüz
-    // kendi diline sonra çevirecek.
+    // kullanıcıya koddan seçtiği kendi metnini gösteriyor.
     private static String messageOf(Exception ex, HttpStatusCode status) {
         if (ex instanceof ResponseStatusException rse && rse.getReason() != null) {
             return rse.getReason();

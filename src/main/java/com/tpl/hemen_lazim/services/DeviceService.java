@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.Device;
 import com.tpl.hemen_lazim.model.User;
 import com.tpl.hemen_lazim.repositories.DeviceRepository;
@@ -32,7 +34,7 @@ public class DeviceService {
     @Transactional
     public Device registerDevice(UUID userId, String fcmToken, String deviceType, String deviceName) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         // Check if device with this token already exists
         Device device = deviceRepository.findByFcmToken(fcmToken)

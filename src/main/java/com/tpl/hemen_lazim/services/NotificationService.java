@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.Device;
 import com.tpl.hemen_lazim.model.MaterialRequest;
 import com.tpl.hemen_lazim.model.RequestLimits;
@@ -8,10 +10,8 @@ import com.tpl.hemen_lazim.repositories.MaterialRequestRepository;
 import com.tpl.hemen_lazim.util.ChatRooms;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -56,19 +56,19 @@ public class NotificationService {
      */
     public boolean sendSupplyOfferNotification(UUID requestId, UUID supplierId) {
         MaterialRequest request = requestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
+                .orElseThrow(() -> new ApiException(ErrorCode.REQUEST_NOT_FOUND));
 
         // Talep sahibi istekten değil talebin kendisinden okunur; eskiden gövdedeki
         // requesterId'ye güveniliyordu ve herkese bildirim atılabiliyordu.
         UUID requesterId = request.getRequester().getId();
         if (requesterId.equals(supplierId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot make an offer on your own request");
+            throw new ApiException(ErrorCode.OFFER_ON_OWN_REQUEST);
         }
 
         Instant now = Instant.now();
         Instant expiresAt = request.getExpiresAt();
         if (request.getStatus() != RequestStatus.OPEN || (expiresAt != null && !expiresAt.isAfter(now))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request is no longer open");
+            throw new ApiException(ErrorCode.REQUEST_NOT_OPEN);
         }
 
         OfferKey offer = new OfferKey(supplierId, requestId);

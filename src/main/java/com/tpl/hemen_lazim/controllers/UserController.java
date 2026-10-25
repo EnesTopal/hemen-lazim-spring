@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.controllers;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.DTOs.UserSummaryDTO;
 import com.tpl.hemen_lazim.security.SecurityUtils;
@@ -31,6 +33,6 @@ public class UserController {
     public ResponseEntity<UserSummaryDTO> getUser(@PathVariable UUID id) {
         return userServices.getUserSummary(id)
                 .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
     }
 }

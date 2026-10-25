@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.Device;
 import com.tpl.hemen_lazim.model.MaterialRequest;
 import com.tpl.hemen_lazim.model.User;
@@ -15,8 +17,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -118,7 +118,7 @@ class NotificationServiceTest {
     void ownRequestIsRejected() {
         givenRequest(RequestStatus.OPEN, Instant.now().plus(Duration.ofHours(1)));
 
-        assertStatus(HttpStatus.BAD_REQUEST, () -> notificationService.sendSupplyOfferNotification(REQUEST_ID, OWNER));
+        assertCode(ErrorCode.OFFER_ON_OWN_REQUEST, () -> notificationService.sendSupplyOfferNotification(REQUEST_ID, OWNER));
         verifyNoInteractions(deviceService, firebaseService);
     }
 
@@ -126,7 +126,7 @@ class NotificationServiceTest {
     void closedRequestIsRejected() {
         givenRequest(RequestStatus.COMPLETED, Instant.now().plus(Duration.ofHours(1)));
 
-        assertStatus(HttpStatus.CONFLICT, () -> notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
+        assertCode(ErrorCode.REQUEST_NOT_OPEN, () -> notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
         verifyNoInteractions(deviceService, firebaseService);
     }
 
@@ -134,7 +134,7 @@ class NotificationServiceTest {
     void expiredRequestIsRejectedBeforeTheExpiryJobRuns() {
         givenRequest(RequestStatus.OPEN, Instant.now().minus(Duration.ofMinutes(1)));
 
-        assertStatus(HttpStatus.CONFLICT, () -> notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
+        assertCode(ErrorCode.REQUEST_NOT_OPEN, () -> notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
         verifyNoInteractions(deviceService, firebaseService);
     }
 
@@ -142,7 +142,7 @@ class NotificationServiceTest {
     void missingRequestIsNotFound() {
         when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.empty());
 
-        assertStatus(HttpStatus.NOT_FOUND, () -> notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
+        assertCode(ErrorCode.REQUEST_NOT_FOUND, () -> notificationService.sendSupplyOfferNotification(REQUEST_ID, SUPPLIER));
     }
 
     private void givenRequest(RequestStatus status, Instant expiresAt) {
@@ -168,8 +168,8 @@ class NotificationServiceTest {
         when(firebaseService.sendNotification(eq(TOKEN), anyString(), anyString(), any())).thenReturn(result);
     }
 
-    private static void assertStatus(HttpStatus expected, Executable call) {
-        ResponseStatusException e = assertThrows(ResponseStatusException.class, call);
-        assertEquals(expected, e.getStatusCode());
+    private static void assertCode(ErrorCode expected, Executable call) {
+        ApiException e = assertThrows(ApiException.class, call);
+        assertEquals(expected, e.getCode());
     }
 }

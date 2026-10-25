@@ -1,6 +1,8 @@
 package com.tpl.hemen_lazim.controller;
 
 import com.tpl.hemen_lazim.config.GlobalExceptionHandler;
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.Message;
 import com.tpl.hemen_lazim.security.JwtUserDetails;
 import com.tpl.hemen_lazim.services.ChatService;
@@ -10,13 +12,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -103,10 +103,11 @@ class ChatControllerTest {
     @Test
     void foreignRoomHistoryIsForbidden() throws Exception {
         when(chatService.history(eq(ME), any(), any(), anyInt()))
-                .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this chat"));
+                .thenThrow(new ApiException(ErrorCode.NOT_CHAT_MEMBER));
 
         mvc.perform(get("/api/chat/history").param("roomId", OTHER + "_" + SPOOFED))
                 .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NOT_CHAT_MEMBER"))
                 .andExpect(jsonPath("$.message").value("You are not a member of this chat"));
     }
 }

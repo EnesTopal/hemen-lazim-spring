@@ -1,6 +1,8 @@
 package com.tpl.hemen_lazim.config;
 
 import com.tpl.hemen_lazim.controllers.MaterialRequestController;
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.services.MaterialRequestService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,15 +45,37 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void missingRequestIsNotFoundWithItsMessage() throws Exception {
+    void missingRequestIsNotFoundWithItsCode() throws Exception {
         UUID id = UUID.randomUUID();
-        when(service.get(id)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
+        when(service.get(id)).thenThrow(new ApiException(ErrorCode.REQUEST_NOT_FOUND));
+
+        mvc.perform(get("/api/requests/{id}", id))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("REQUEST_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Request not found"))
+                .andExpect(jsonPath("$.fieldErrors").doesNotExist());
+    }
+
+    @Test
+    void apiExceptionKeepsItsDetailedMessage() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(service.get(id)).thenThrow(new ApiException(ErrorCode.REQUEST_NOT_OPEN, "Only open requests can be extended"));
+
+        mvc.perform(get("/api/requests/{id}", id))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("REQUEST_NOT_OPEN"))
+                .andExpect(jsonPath("$.message").value("Only open requests can be extended"));
+    }
+
+    @Test
+    void frameworkErrorsUseTheStatusNameAsCode() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(service.get(id)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Gone"));
 
         mvc.perform(get("/api/requests/{id}", id))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("Request not found"))
-                .andExpect(jsonPath("$.fieldErrors").doesNotExist());
+                .andExpect(jsonPath("$.message").value("Gone"));
     }
 
     @Test
@@ -60,6 +84,7 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"\"}"))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.message").value("Validation failed"))
                 .andExpect(jsonPath("$.fieldErrors[?(@.field == 'title')]").exists())
                 .andExpect(jsonPath("$.fieldErrors[?(@.field == 'expiresInMinutes')]").exists());
@@ -82,6 +107,7 @@ class GlobalExceptionHandlerTest {
     void malformedIdIsBadRequest() throws Exception {
         mvc.perform(get("/api/requests/not-a-uuid"))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
                 .andExpect(jsonPath("$.message").value("Bad request"));
     }
 
@@ -90,6 +116,7 @@ class GlobalExceptionHandlerTest {
         // SecurityContext boş: SecurityUtils.currentUserId() AccessDeniedException fırlatır
         mvc.perform(get("/api/requests/mine"))
                 .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
                 .andExpect(jsonPath("$.message").value("Access denied"));
     }
 
@@ -100,6 +127,7 @@ class GlobalExceptionHandlerTest {
 
         mvc.perform(get("/api/requests/{id}", id))
                 .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
                 .andExpect(jsonPath("$.message").value("Unexpected error"))
                 .andExpect(content().string(not(containsString("db-host"))));
     }

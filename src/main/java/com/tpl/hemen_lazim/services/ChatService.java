@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.DTOs.RoomUnread;
 import com.tpl.hemen_lazim.model.Message;
 import com.tpl.hemen_lazim.repositories.UserRepository;
@@ -10,10 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -46,10 +46,10 @@ public class ChatService {
     public Message send(UUID me, String recipientId, String content) {
         UUID recipient = requireOtherUser(me, recipientId);
         if (content == null || content.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message must not be empty");
+            throw new ApiException(ErrorCode.MESSAGE_EMPTY);
         }
         if (content.length() > MAX_CONTENT_LENGTH) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+            throw new ApiException(ErrorCode.MESSAGE_TOO_LONG,
                     "Message must be at most " + MAX_CONTENT_LENGTH + " characters");
         }
 
@@ -116,28 +116,28 @@ public class ChatService {
     private UUID requireOtherUser(UUID me, String userId) {
         UUID other = parseUserId(userId);
         if (other.equals(me)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot chat with yourself");
+            throw new ApiException(ErrorCode.CHAT_WITH_SELF);
         }
         if (!userRepository.existsById(other)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+            throw new ApiException(ErrorCode.USER_NOT_FOUND);
         }
         return other;
     }
 
     private static UUID parseUserId(String userId) {
         if (userId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user id");
+            throw new ApiException(ErrorCode.INVALID_USER_ID);
         }
         try {
             return UUID.fromString(userId);
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user id");
+            throw new ApiException(ErrorCode.INVALID_USER_ID);
         }
     }
 
     private static void requireMember(UUID me, String roomId) {
         if (!ChatRooms.isMember(roomId, me)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this chat");
+            throw new ApiException(ErrorCode.NOT_CHAT_MEMBER);
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.MaterialRequest;
 import com.tpl.hemen_lazim.model.RequestLimits;
@@ -13,12 +15,9 @@ import com.tpl.hemen_lazim.repositories.MaterialRequestRepository;
 import com.tpl.hemen_lazim.repositories.UserRepository;
 import com.tpl.hemen_lazim.util.GeoUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -64,7 +63,7 @@ public class MaterialRequestService {
     @Transactional
     public MaterialRequestDTO create(UUID requesterId, MaterialRequestCreateDTO dto) {
         User requester = userRepository.findById(requesterId)
-                .orElseThrow(() -> new IllegalArgumentException("Requester not found"));
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         MaterialRequest entity = new MaterialRequest();
         entity.setRequester(requester);
@@ -87,7 +86,7 @@ public class MaterialRequestService {
     @Transactional(readOnly = true)
     public MaterialRequestDTO get(UUID requestId) {
         MaterialRequest r = materialRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
+                .orElseThrow(() -> new ApiException(ErrorCode.REQUEST_NOT_FOUND));
         return toDto(r);
     }
 
@@ -184,10 +183,10 @@ public class MaterialRequestService {
     // ---------- Helpers ----------
     private MaterialRequest mustBeOwnerOrAdmin(UUID requesterId, UUID requestId) {
         MaterialRequest r = materialRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
+                .orElseThrow(() -> new ApiException(ErrorCode.REQUEST_NOT_FOUND));
 
         User requester = userRepository.findById(requesterId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         if (requester.getRole() == Role.ADMIN) {
             return r;
@@ -195,7 +194,7 @@ public class MaterialRequestService {
 
         if (r.getRequester() == null || r.getRequester().getId() == null ||
                 !r.getRequester().getId().equals(requesterId)) {
-            throw new AccessDeniedException("Only owner or admin can modify this request");
+            throw new ApiException(ErrorCode.NOT_REQUEST_OWNER);
         }
 
         return r;
@@ -203,7 +202,7 @@ public class MaterialRequestService {
 
     private static void requireOpen(MaterialRequest r, String message) {
         if (r.getStatus() != RequestStatus.OPEN) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, message);
+            throw new ApiException(ErrorCode.REQUEST_NOT_OPEN, message);
         }
     }
 

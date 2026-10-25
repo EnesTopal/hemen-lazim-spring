@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.DTOs.CreateUserDTO;
 import com.tpl.hemen_lazim.model.DTOs.UserDTO;
@@ -7,7 +9,6 @@ import com.tpl.hemen_lazim.model.DTOs.UserSummaryDTO;
 import com.tpl.hemen_lazim.model.User;
 import com.tpl.hemen_lazim.model.enums.Role;
 import com.tpl.hemen_lazim.repositories.UserRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -37,13 +38,10 @@ public class UserServices {
     }
 
     public ResponseEntity<ApiResponse<String>> deleteAccount(UUID userId) {
-        Optional<User> opt = userRepository.findById(userId);
-        if (opt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponse<>("User not found"));
-        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        userRepository.delete(opt.get());
+        userRepository.delete(user);
         return ResponseEntity.ok(new ApiResponse<>("Success: User deleted"));
     }
 

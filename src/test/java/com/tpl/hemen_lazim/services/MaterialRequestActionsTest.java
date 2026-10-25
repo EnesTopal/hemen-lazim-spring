@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.MaterialRequest;
 import com.tpl.hemen_lazim.model.RequestLimits;
 import com.tpl.hemen_lazim.model.User;
@@ -14,9 +16,6 @@ import org.junit.jupiter.api.function.Executable;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -84,9 +83,9 @@ class MaterialRequestActionsTest {
     void closedRequestCannotBeExtendedCancelledOrCompleted() {
         givenRequest(OWNER, RequestStatus.COMPLETED, Instant.now().plus(HOUR));
 
-        assertStatus(HttpStatus.CONFLICT, () -> service.extend(OWNER, REQUEST_ID, 60));
-        assertStatus(HttpStatus.CONFLICT, () -> service.cancel(OWNER, REQUEST_ID));
-        assertStatus(HttpStatus.CONFLICT, () -> service.complete(OWNER, REQUEST_ID));
+        assertCode(ErrorCode.REQUEST_NOT_OPEN, () -> service.extend(OWNER, REQUEST_ID, 60));
+        assertCode(ErrorCode.REQUEST_NOT_OPEN, () -> service.cancel(OWNER, REQUEST_ID));
+        assertCode(ErrorCode.REQUEST_NOT_OPEN, () -> service.complete(OWNER, REQUEST_ID));
     }
 
     @Test
@@ -96,16 +95,16 @@ class MaterialRequestActionsTest {
         stranger.setId(STRANGER);
         when(userRepository.findById(STRANGER)).thenReturn(Optional.of(stranger));
 
-        assertThrows(AccessDeniedException.class, () -> service.extend(STRANGER, REQUEST_ID, 60));
-        assertThrows(AccessDeniedException.class, () -> service.cancel(STRANGER, REQUEST_ID));
+        assertCode(ErrorCode.NOT_REQUEST_OWNER, () -> service.extend(STRANGER, REQUEST_ID, 60));
+        assertCode(ErrorCode.NOT_REQUEST_OWNER, () -> service.cancel(STRANGER, REQUEST_ID));
     }
 
     @Test
     void missingRequestIsNotFound() {
         when(materialRequestRepository.findById(REQUEST_ID)).thenReturn(Optional.empty());
 
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.extend(OWNER, REQUEST_ID, 60));
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.cancel(OWNER, REQUEST_ID));
+        assertCode(ErrorCode.REQUEST_NOT_FOUND, () -> service.extend(OWNER, REQUEST_ID, 60));
+        assertCode(ErrorCode.REQUEST_NOT_FOUND, () -> service.cancel(OWNER, REQUEST_ID));
     }
 
     @Test
@@ -141,8 +140,8 @@ class MaterialRequestActionsTest {
         assertTrue(!actual.isBefore(from) && !actual.isAfter(to), actual + " not in [" + from + ", " + to + "]");
     }
 
-    private static void assertStatus(HttpStatus expected, Executable call) {
-        ResponseStatusException e = assertThrows(ResponseStatusException.class, call);
-        assertEquals(expected, e.getStatusCode());
+    private static void assertCode(ErrorCode expected, Executable call) {
+        ApiException e = assertThrows(ApiException.class, call);
+        assertEquals(expected, e.getCode());
     }
 }

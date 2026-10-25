@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.Message;
 import com.tpl.hemen_lazim.repositories.UserRepository;
 import com.tpl.hemen_lazim.repository.MessageRepository;
@@ -12,9 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -79,16 +79,16 @@ class ChatServiceTest {
     void sendRejectsBlankOrTooLongContent() {
         when(userRepository.existsById(OTHER)).thenReturn(true);
 
-        assertStatus(HttpStatus.BAD_REQUEST, () -> chatService.send(ME, OTHER.toString(), "   "));
-        assertStatus(HttpStatus.BAD_REQUEST, () -> chatService.send(ME, OTHER.toString(), null));
-        assertStatus(HttpStatus.BAD_REQUEST,
+        assertCode(ErrorCode.MESSAGE_EMPTY, () -> chatService.send(ME, OTHER.toString(), "   "));
+        assertCode(ErrorCode.MESSAGE_EMPTY, () -> chatService.send(ME, OTHER.toString(), null));
+        assertCode(ErrorCode.MESSAGE_TOO_LONG,
                 () -> chatService.send(ME, OTHER.toString(), "a".repeat(ChatService.MAX_CONTENT_LENGTH + 1)));
         verify(messageRepository, never()).save(any());
     }
 
     @Test
     void sendRejectsMessagesToSelf() {
-        assertStatus(HttpStatus.BAD_REQUEST, () -> chatService.send(ME, ME.toString(), "selam"));
+        assertCode(ErrorCode.CHAT_WITH_SELF, () -> chatService.send(ME, ME.toString(), "selam"));
         verifyNoInteractions(messageRepository, messagingTemplate);
     }
 
@@ -96,9 +96,9 @@ class ChatServiceTest {
     void sendRejectsUnknownOrMalformedRecipient() {
         when(userRepository.existsById(OTHER)).thenReturn(false);
 
-        assertStatus(HttpStatus.NOT_FOUND, () -> chatService.send(ME, OTHER.toString(), "selam"));
-        assertStatus(HttpStatus.BAD_REQUEST, () -> chatService.send(ME, "not-a-uuid", "selam"));
-        assertStatus(HttpStatus.BAD_REQUEST, () -> chatService.send(ME, null, "selam"));
+        assertCode(ErrorCode.USER_NOT_FOUND, () -> chatService.send(ME, OTHER.toString(), "selam"));
+        assertCode(ErrorCode.INVALID_USER_ID, () -> chatService.send(ME, "not-a-uuid", "selam"));
+        assertCode(ErrorCode.INVALID_USER_ID, () -> chatService.send(ME, null, "selam"));
         verifyNoInteractions(messageRepository, messagingTemplate);
     }
 
@@ -106,8 +106,8 @@ class ChatServiceTest {
     void outsiderCannotReadHistoryOrSync() {
         String strangersRoom = ChatRooms.roomIdFor(OTHER, UUID.randomUUID());
 
-        assertStatus(HttpStatus.FORBIDDEN, () -> chatService.history(ME, strangersRoom, null, 30));
-        assertStatus(HttpStatus.FORBIDDEN, () -> chatService.sync(ME, strangersRoom, 0L));
+        assertCode(ErrorCode.NOT_CHAT_MEMBER, () -> chatService.history(ME, strangersRoom, null, 30));
+        assertCode(ErrorCode.NOT_CHAT_MEMBER, () -> chatService.sync(ME, strangersRoom, 0L));
         verifyNoInteractions(messageRepository);
     }
 
@@ -131,11 +131,11 @@ class ChatServiceTest {
         when(userRepository.existsById(OTHER)).thenReturn(true);
 
         assertEquals(ChatRooms.roomIdFor(ME, OTHER), chatService.roomWith(ME, OTHER.toString()));
-        assertStatus(HttpStatus.BAD_REQUEST, () -> chatService.roomWith(ME, ME.toString()));
+        assertCode(ErrorCode.CHAT_WITH_SELF, () -> chatService.roomWith(ME, ME.toString()));
     }
 
-    private static void assertStatus(HttpStatus expected, Executable call) {
-        ResponseStatusException e = assertThrows(ResponseStatusException.class, call);
-        assertEquals(expected, e.getStatusCode());
+    private static void assertCode(ErrorCode expected, Executable call) {
+        ApiException e = assertThrows(ApiException.class, call);
+        assertEquals(expected, e.getCode());
     }
 }

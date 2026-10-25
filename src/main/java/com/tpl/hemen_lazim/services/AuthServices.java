@@ -159,13 +159,13 @@ public class AuthServices {
     /** Kurala uymayan alan için kullanıcıya gösterilecek mesaj; hepsi geçerliyse null. */
     private static String validateRegistration(String userName, String email, String rawPassword) {
         if (userName == null || userName.length() < USERNAME_MIN || userName.length() > USERNAME_MAX)
-            return "Kullanıcı adı " + USERNAME_MIN + " ile " + USERNAME_MAX + " karakter arasında olmalı";
+            return "Username must be between " + USERNAME_MIN + " and " + USERNAME_MAX + " characters";
         if (email == null || email.length() > EMAIL_MAX || !EMAIL_PATTERN.matcher(email).matches())
-            return "Geçersiz e-posta";
+            return "Invalid email";
         if (!PASSWORD_PATTERN.matcher(rawPassword).matches())
-            return "Şifre en az 8 karakter olmalı, harf ve rakam içermeli";
+            return "Password must be at least 8 characters and contain a letter and a digit";
         if (rawPassword.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES)
-            return "Şifre çok uzun";
+            return "Password is too long";
         return null;
     }
 

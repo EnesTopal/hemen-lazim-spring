@@ -38,7 +38,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<ApiError.FieldError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
                 .map(e -> new ApiError.FieldError(e.getField(), e.getDefaultMessage()))
                 .toList();
-        ApiError body = new ApiError(codeOf(status), "Gönderilen bilgiler geçersiz", fieldErrors);
+        ApiError body = new ApiError(codeOf(status), "Validation failed", fieldErrors);
         return handleExceptionInternal(ex, body, headers, status, request);
     }
 
@@ -59,33 +59,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex) {
-        return error(HttpStatus.FORBIDDEN, "Bu işlem için yetkin yok");
+        return error(HttpStatus.FORBIDDEN, "Access denied");
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception ex) {
         log.error("Beklenmeyen hata", ex);
-        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Beklenmeyen bir hata oluştu");
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error");
     }
 
     private static ResponseEntity<ApiError> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(new ApiError(status.name(), message, null));
     }
 
-    // ResponseStatusException'larda mesajı biz yazıyoruz. Diğer istisnaların mesajı İngilizce
-    // ve iç ayrıntı içerebiliyor, o yüzden kullanıcıya genel bir metin gider.
+    // ResponseStatusException'larda mesajı biz yazıyoruz. Diğer istisnaların mesajı iç ayrıntı
+    // içerebiliyor, o yüzden duruma göre genel bir metin gider. Metinler İngilizce; arayüz
+    // kendi diline sonra çevirecek.
     private static String messageOf(Exception ex, HttpStatusCode status) {
         if (ex instanceof ResponseStatusException rse && rse.getReason() != null) {
             return rse.getReason();
         }
         return switch (status.value()) {
-            case 400 -> "İstek geçersiz";
-            case 401 -> "Oturum açman gerekiyor";
-            case 403 -> "Bu işlem için yetkin yok";
-            case 404 -> "Bulunamadı";
-            case 405 -> "Bu işlem desteklenmiyor";
-            case 409 -> "İstek mevcut durumla çelişiyor";
-            default -> status.is5xxServerError() ? "Beklenmeyen bir hata oluştu" : "İstek işlenemedi";
+            case 400 -> "Bad request";
+            case 401 -> "Authentication required";
+            case 403 -> "Access denied";
+            case 404 -> "Not found";
+            case 405 -> "Method not allowed";
+            case 409 -> "Conflict";
+            default -> status.is5xxServerError() ? "Unexpected error" : "Request could not be processed";
         };
     }
 

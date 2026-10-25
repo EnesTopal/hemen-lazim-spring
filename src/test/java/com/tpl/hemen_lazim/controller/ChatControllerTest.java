@@ -103,10 +103,10 @@ class ChatControllerTest {
     @Test
     void foreignRoomHistoryIsForbidden() throws Exception {
         when(chatService.history(eq(ME), any(), any(), anyInt()))
-                .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Bu sohbete erişimin yok"));
+                .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this chat"));
 
         mvc.perform(get("/api/chat/history").param("roomId", OTHER + "_" + SPOOFED))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Bu sohbete erişimin yok"));
+                .andExpect(jsonPath("$.message").value("You are not a member of this chat"));
     }
 }

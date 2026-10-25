@@ -45,12 +45,12 @@ class GlobalExceptionHandlerTest {
     @Test
     void missingRequestIsNotFoundWithItsMessage() throws Exception {
         UUID id = UUID.randomUUID();
-        when(service.get(id)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Talep bulunamadı"));
+        when(service.get(id)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
 
         mvc.perform(get("/api/requests/{id}", id))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("Talep bulunamadı"))
+                .andExpect(jsonPath("$.message").value("Request not found"))
                 .andExpect(jsonPath("$.fieldErrors").doesNotExist());
     }
 
@@ -60,7 +60,7 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Gönderilen bilgiler geçersiz"))
+                .andExpect(jsonPath("$.message").value("Validation failed"))
                 .andExpect(jsonPath("$.fieldErrors[?(@.field == 'title')]").exists())
                 .andExpect(jsonPath("$.fieldErrors[?(@.field == 'expiresInMinutes')]").exists());
 
@@ -71,7 +71,7 @@ class GlobalExceptionHandlerTest {
     void malformedIdIsBadRequest() throws Exception {
         mvc.perform(get("/api/requests/not-a-uuid"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("İstek geçersiz"));
+                .andExpect(jsonPath("$.message").value("Bad request"));
     }
 
     @Test
@@ -79,7 +79,7 @@ class GlobalExceptionHandlerTest {
         // SecurityContext boş: SecurityUtils.currentUserId() AccessDeniedException fırlatır
         mvc.perform(get("/api/requests/mine"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Bu işlem için yetkin yok"));
+                .andExpect(jsonPath("$.message").value("Access denied"));
     }
 
     @Test
@@ -89,7 +89,7 @@ class GlobalExceptionHandlerTest {
 
         mvc.perform(get("/api/requests/{id}", id))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.message").value("Beklenmeyen bir hata oluştu"))
+                .andExpect(jsonPath("$.message").value("Unexpected error"))
                 .andExpect(content().string(not(containsString("db-host"))));
     }
 }

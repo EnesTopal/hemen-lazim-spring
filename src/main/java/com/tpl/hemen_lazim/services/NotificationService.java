@@ -56,19 +56,19 @@ public class NotificationService {
      */
     public boolean sendSupplyOfferNotification(UUID requestId, UUID supplierId) {
         MaterialRequest request = requestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Talep bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
 
         // Talep sahibi istekten değil talebin kendisinden okunur; eskiden gövdedeki
         // requesterId'ye güveniliyordu ve herkese bildirim atılabiliyordu.
         UUID requesterId = request.getRequester().getId();
         if (requesterId.equals(supplierId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kendi talebine teklif veremezsin");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot make an offer on your own request");
         }
 
         Instant now = Instant.now();
         Instant expiresAt = request.getExpiresAt();
         if (request.getStatus() != RequestStatus.OPEN || (expiresAt != null && !expiresAt.isAfter(now))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bu talep artık açık değil");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request is no longer open");
         }
 
         OfferKey offer = new OfferKey(supplierId, requestId);

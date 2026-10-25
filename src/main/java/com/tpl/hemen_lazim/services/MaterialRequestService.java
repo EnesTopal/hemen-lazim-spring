@@ -87,7 +87,7 @@ public class MaterialRequestService {
     @Transactional(readOnly = true)
     public MaterialRequestDTO get(UUID requestId) {
         MaterialRequest r = materialRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Talep bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
         return toDto(r);
     }
 

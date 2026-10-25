@@ -46,11 +46,11 @@ public class ChatService {
     public Message send(UUID me, String recipientId, String content) {
         UUID recipient = requireOtherUser(me, recipientId);
         if (content == null || content.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mesaj boş olamaz");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message must not be empty");
         }
         if (content.length() > MAX_CONTENT_LENGTH) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Mesaj en fazla " + MAX_CONTENT_LENGTH + " karakter olabilir");
+                    "Message must be at most " + MAX_CONTENT_LENGTH + " characters");
         }
 
         Message saved = messageRepository.save(Message.builder()
@@ -116,28 +116,28 @@ public class ChatService {
     private UUID requireOtherUser(UUID me, String userId) {
         UUID other = parseUserId(userId);
         if (other.equals(me)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kendinle sohbet edemezsin");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot chat with yourself");
         }
         if (!userRepository.existsById(other)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Kullanıcı bulunamadı");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
         return other;
     }
 
     private static UUID parseUserId(String userId) {
         if (userId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Geçersiz kullanıcı");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user id");
         }
         try {
             return UUID.fromString(userId);
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Geçersiz kullanıcı");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user id");
         }
     }
 
     private static void requireMember(UUID me, String roomId) {
         if (!ChatRooms.isMember(roomId, me)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bu sohbete erişimin yok");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this chat");
         }
     }
 }

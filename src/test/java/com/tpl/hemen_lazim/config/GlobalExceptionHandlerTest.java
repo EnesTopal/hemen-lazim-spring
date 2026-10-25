@@ -68,6 +68,17 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void extendOutsideTheDurationRangeIsBadRequest() throws Exception {
+        mvc.perform(post("/api/requests/{id}/extend", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"minutes\":5}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'minutes')]").exists());
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
     void malformedIdIsBadRequest() throws Exception {
         mvc.perform(get("/api/requests/not-a-uuid"))
                 .andExpect(status().isBadRequest())

@@ -137,84 +137,57 @@ public class MaterialRequestService {
     }
 
     // ---------- Status ops ----------
-    // import org.springframework.http.ResponseEntity;
-// import org.springframework.http.HttpStatus;
-// import com.tpl.hemen_lazim.model.ApiResponse;
+    // Bulunamayan talep, yetkisiz kullanıcı ve kapalı talep istisna olarak fırlatılır;
+    // GlobalExceptionHandler bunları 404 / 403 / 409'a çeviriyor.
 
     @Transactional
     public ResponseEntity<ApiResponse<String>> cancel(UUID requesterId, UUID requestId) {
-        try {
-            MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
-
-            if (r.getStatus() != RequestStatus.OPEN) {
-                return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>("Only OPEN requests can be cancelled"));
-            }
-
-            r.setStatus(RequestStatus.CANCELLED);
-            return ResponseEntity.ok(new ApiResponse<>("Request cancelled successfully"));
-        } catch (AccessDeniedException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(new ApiResponse<>(e.getMessage()));
-        } catch (IllegalArgumentException e) { // "Request not found"
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponse<>(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>("Unexpected error"));
-        }
+        MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
+        requireOpen(r, "Only open requests can be cancelled");
+        r.setStatus(RequestStatus.CANCELLED);
+        return ResponseEntity.ok(new ApiResponse<>("Request cancelled successfully"));
     }
 
     @Transactional
     public ResponseEntity<ApiResponse<String>> complete(UUID requesterId, UUID requestId) {
-        try {
-            MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
-
-            if (r.getStatus() != RequestStatus.OPEN) {
-                return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>("Only OPEN requests can be completed"));
-            }
-
-            r.setStatus(RequestStatus.COMPLETED);
-            return ResponseEntity.ok(new ApiResponse<>("Request completed successfully"));
-        } catch (AccessDeniedException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(new ApiResponse<>(e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponse<>(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>("Unexpected error"));
-        }
+        MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
+        requireOpen(r, "Only open requests can be completed");
+        r.setStatus(RequestStatus.COMPLETED);
+        return ResponseEntity.ok(new ApiResponse<>("Request completed successfully"));
     }
 
     @Transactional
     public ResponseEntity<ApiResponse<String>> delete(UUID requesterId, UUID requestId) {
-        try {
-            MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
-            materialRequestRepository.delete(r);
-            return ResponseEntity.ok(new ApiResponse<>("Request deleted successfully"));
-        } catch (AccessDeniedException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(new ApiResponse<>(e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponse<>(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>("Unexpected error"));
-        }
+        MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
+        materialRequestRepository.delete(r);
+        return ResponseEntity.ok(new ApiResponse<>("Request deleted successfully"));
+    }
+
+    /**
+     * Açık talebin süresini uzatır: yeni bitiş, eski bitişe (geçmişse şimdiye) eklenen süre.
+     * Bir talep hiçbir zaman şu andan en uzun süreden (24 sa) daha ileriye açık kalmaz.
+     */
+    @Transactional
+    public MaterialRequestDTO extend(UUID requesterId, UUID requestId, int minutes) {
+        MaterialRequest r = mustBeOwnerOrAdmin(requesterId, requestId);
+        requireOpen(r, "Only open requests can be extended");
+
+        Instant now = Instant.now();
+        Instant from = (r.getExpiresAt() == null || r.getExpiresAt().isBefore(now)) ? now : r.getExpiresAt();
+        Instant extended = from.plus(minutes, ChronoUnit.MINUTES);
+        Instant latest = now.plus(RequestLimits.MAX_DURATION_MIN, ChronoUnit.MINUTES);
+        r.setExpiresAt(extended.isAfter(latest) ? latest : extended);
+        return toDto(r);
     }
 
 
     // ---------- Helpers ----------
     private MaterialRequest mustBeOwnerOrAdmin(UUID requesterId, UUID requestId) {
         MaterialRequest r = materialRequestRepository.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
 
         User requester = userRepository.findById(requesterId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         if (requester.getRole() == Role.ADMIN) {
             return r;
@@ -226,6 +199,12 @@ public class MaterialRequestService {
         }
 
         return r;
+    }
+
+    private static void requireOpen(MaterialRequest r, String message) {
+        if (r.getStatus() != RequestStatus.OPEN) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, message);
+        }
     }
 
     private static int clampRadius(int radiusMeters) {

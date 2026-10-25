@@ -1,6 +1,7 @@
 package com.tpl.hemen_lazim.controllers;
 
 import com.tpl.hemen_lazim.model.ApiResponse;
+import com.tpl.hemen_lazim.model.DTOs.ExtendRequestDTO;
 import com.tpl.hemen_lazim.model.DTOs.MaterialRequestCreateDTO;
 import com.tpl.hemen_lazim.model.DTOs.MaterialRequestDTO;
 import com.tpl.hemen_lazim.model.enums.Category;
@@ -71,6 +72,14 @@ public class MaterialRequestController {
     public ResponseEntity<ApiResponse<String>> complete(@PathVariable UUID id) {
         var me = SecurityUtils.currentUserId();
         return service.complete(me, id);
+    }
+
+    @PostMapping("/{id}/extend")
+    public ResponseEntity<ApiResponse<MaterialRequestDTO>> extend(@PathVariable UUID id,
+                                                                  @Valid @RequestBody ExtendRequestDTO body) {
+        var me = SecurityUtils.currentUserId();
+        var dto = service.extend(me, id, body.minutes());
+        return ResponseEntity.ok(new ApiResponse<>("Request extended", dto));
     }
 
     @DeleteMapping("/{id}")

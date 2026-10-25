@@ -24,7 +24,24 @@ public enum ErrorCode {
     CHAT_WITH_SELF(HttpStatus.BAD_REQUEST, "You cannot chat with yourself"),
     NOT_CHAT_MEMBER(HttpStatus.FORBIDDEN, "You are not a member of this chat"),
     MESSAGE_EMPTY(HttpStatus.BAD_REQUEST, "Message must not be empty"),
-    MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "Message is too long");
+    MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "Message is too long"),
+
+    // Giriş ve kayıt
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Invalid username or password"),
+    ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "User is disabled"),
+    ACCOUNT_LOCKED(HttpStatus.LOCKED, "User account is locked"),
+    AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "Authentication failed"),
+    USERNAME_INVALID(HttpStatus.BAD_REQUEST, "Invalid username"),
+    EMAIL_INVALID(HttpStatus.BAD_REQUEST, "Invalid email"),
+    PASSWORD_INVALID(HttpStatus.BAD_REQUEST, "Password must be at least 8 characters and contain a letter and a digit"),
+    PASSWORD_TOO_LONG(HttpStatus.BAD_REQUEST, "Password is too long"),
+    USERNAME_TAKEN(HttpStatus.BAD_REQUEST, "Username already in use"),
+    EMAIL_TAKEN(HttpStatus.BAD_REQUEST, "Email already in use"),
+
+    // Oturum yenileme (uygulama bu durumlarda girişe döner; 400/401/403/409 "reddedildi" sayılıyor)
+    REFRESH_NOT_FOUND(HttpStatus.UNAUTHORIZED, "Refresh token not found"),
+    REFRESH_REVOKED(HttpStatus.CONFLICT, "Refresh token revoked"),
+    REFRESH_EXPIRED(HttpStatus.UNAUTHORIZED, "Refresh token expired");
 
     private final HttpStatus status;
     private final String message;

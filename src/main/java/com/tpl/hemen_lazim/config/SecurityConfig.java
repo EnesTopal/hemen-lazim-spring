@@ -1,5 +1,6 @@
 package com.tpl.hemen_lazim.config;
 
+import com.tpl.hemen_lazim.security.JwtAccessDeniedHandler;
 import com.tpl.hemen_lazim.security.JwtAuthEntryPoint;
 import com.tpl.hemen_lazim.security.JwtAuthFilter;
 import com.tpl.hemen_lazim.services.JwtUserDetailsService;
@@ -27,10 +28,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
     private final JwtAuthFilter jwtAuthFilter;
 
-    public SecurityConfig(JwtAuthEntryPoint jwtAuthEntryPoint, JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthEntryPoint jwtAuthEntryPoint,
+                          JwtAccessDeniedHandler jwtAccessDeniedHandler,
+                          JwtAuthFilter jwtAuthFilter) {
         this.jwtAuthEntryPoint = jwtAuthEntryPoint;
+        this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
         this.jwtAuthFilter = jwtAuthFilter;
     }
 
@@ -83,7 +88,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthEntryPoint))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(jwtAuthEntryPoint)
+                        .accessDeniedHandler(jwtAccessDeniedHandler))
                 .authenticationProvider(authenticationProvider) // provider'ı zincire tanıt
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

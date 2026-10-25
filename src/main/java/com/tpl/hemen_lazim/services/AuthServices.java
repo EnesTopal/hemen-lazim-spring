@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.DTOs.CreateUserDTO;
 import com.tpl.hemen_lazim.model.DTOs.RefreshRequest;
@@ -79,17 +81,13 @@ public class AuthServices {
             return ResponseEntity.ok(new ApiResponse<>("Login successful", body));
 
         } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponse<>("Invalid username or password", null));
+            throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         } catch (DisabledException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(new ApiResponse<>("User is disabled", null));
+            throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
         } catch (LockedException e) {
-            return ResponseEntity.status(HttpStatus.LOCKED)
-                    .body(new ApiResponse<>("User account is locked", null));
+            throw new ApiException(ErrorCode.ACCOUNT_LOCKED);
         } catch (AuthenticationException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponse<>("Authentication failed", null));
+            throw new ApiException(ErrorCode.AUTHENTICATION_FAILED);
         }
     }
 
@@ -98,15 +96,11 @@ public class AuthServices {
         String email = normalizeEmail(registerRequest.getEmail());
         String rawPassword = safe(registerRequest.getUserPassword());
 
-        String invalid = validateRegistration(userName, email, rawPassword);
-        if (invalid != null)
-            return ResponseEntity.badRequest().body(new ApiResponse<>(invalid, null));
+        validateRegistration(userName, email, rawPassword);
 
-        // Uygulama "Email already in use" metnini arayıp e-posta alanında gösteriyor (AuthViewModel)
-        if (userServices.existsByUserName(userName))
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>("Username already in use", null));
-        if (userServices.existsByEmail(email))
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>("Email already in use", null));
+        // Uygulama bu iki kodu ilgili alanın altında gösteriyor (AuthViewModel)
+        if (userServices.existsByUserName(userName)) throw new ApiException(ErrorCode.USERNAME_TAKEN);
+        if (userServices.existsByEmail(email)) throw new ApiException(ErrorCode.EMAIL_TAKEN);
 
         registerRequest.setUserName(userName);
         registerRequest.setEmail(email);
@@ -116,57 +110,40 @@ public class AuthServices {
         return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>("User successfully registered", saved));
     }
 
-    // YENİ: refresh
+    // Geçersiz token: validateActive REFRESH_NOT_FOUND / REFRESH_REVOKED / REFRESH_EXPIRED fırlatır
     public ResponseEntity<ApiResponse<TokenResponse>> refresh(RefreshRequest req) {
-        try {
-            RefreshToken current = refreshTokens.validateActive(req.refreshToken());
-            // rotation: eskisini revoke et
-            refreshTokens.revoke(current, "ROTATED");
+        RefreshToken current = refreshTokens.validateActive(req.refreshToken());
+        // rotation: eskisini revoke et
+        refreshTokens.revoke(current, "ROTATED");
 
-            // yeni refresh + access
-            RefreshToken next = refreshTokens.issue(current.getUserId());
-            String access = jwtGenerate.generateJwtTokenFromUserId(current.getUserId()); // AŞAĞIDA küçük helper ekleyeceğiz
-            long expiresIn = accessMinutes * 60L;
+        // yeni refresh + access
+        RefreshToken next = refreshTokens.issue(current.getUserId());
+        String access = jwtGenerate.generateJwtTokenFromUserId(current.getUserId());
+        long expiresIn = accessMinutes * 60L;
 
-            TokenResponse body = new TokenResponse(access, next.getToken(), expiresIn);
-            return ResponseEntity.ok(new ApiResponse<>("Refreshed", body));
-        } catch (IllegalStateException ex) {
-            String code = ex.getMessage(); // REFRESH_EXPIRED | REFRESH_REVOKED
-            HttpStatus status = ("REFRESH_EXPIRED".equals(code)) ? HttpStatus.UNAUTHORIZED : HttpStatus.CONFLICT;
-            return ResponseEntity.status(status).body(new ApiResponse<>(code, null));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponse<>("REFRESH_NOT_FOUND", null));
-        }
+        TokenResponse body = new TokenResponse(access, next.getToken(), expiresIn);
+        return ResponseEntity.ok(new ApiResponse<>("Refreshed", body));
     }
 
-    // YENİ: logout
     public ResponseEntity<ApiResponse<Void>> logout(RefreshRequest req) {
-        try {
-            RefreshToken current = refreshTokens.validateActive(req.refreshToken());
-            refreshTokens.revoke(current, "LOGOUT");
-            return ResponseEntity.noContent().build();
-        } catch (IllegalStateException ex) {
-            String code = ex.getMessage();
-            HttpStatus status = ("REFRESH_EXPIRED".equals(code)) ? HttpStatus.UNAUTHORIZED : HttpStatus.CONFLICT;
-            return ResponseEntity.status(status).body(new ApiResponse<>(code, null));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponse<>("REFRESH_NOT_FOUND", null));
-        }
+        RefreshToken current = refreshTokens.validateActive(req.refreshToken());
+        refreshTokens.revoke(current, "LOGOUT");
+        return ResponseEntity.noContent().build();
     }
 
     // --- util'ler ---
 
-    /** Kurala uymayan alan için kullanıcıya gösterilecek mesaj; hepsi geçerliyse null. */
-    private static String validateRegistration(String userName, String email, String rawPassword) {
+    /** Kurala uymayan ilk alanın koduyla ApiException fırlatır. */
+    private static void validateRegistration(String userName, String email, String rawPassword) {
         if (userName == null || userName.length() < USERNAME_MIN || userName.length() > USERNAME_MAX)
-            return "Username must be between " + USERNAME_MIN + " and " + USERNAME_MAX + " characters";
+            throw new ApiException(ErrorCode.USERNAME_INVALID,
+                    "Username must be between " + USERNAME_MIN + " and " + USERNAME_MAX + " characters");
         if (email == null || email.length() > EMAIL_MAX || !EMAIL_PATTERN.matcher(email).matches())
-            return "Invalid email";
+            throw new ApiException(ErrorCode.EMAIL_INVALID);
         if (!PASSWORD_PATTERN.matcher(rawPassword).matches())
-            return "Password must be at least 8 characters and contain a letter and a digit";
+            throw new ApiException(ErrorCode.PASSWORD_INVALID);
         if (rawPassword.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES)
-            return "Password is too long";
-        return null;
+            throw new ApiException(ErrorCode.PASSWORD_TOO_LONG);
     }
 
     // Locale.ROOT: Türkçe yerel ayarlı JVM'de "I" "ı" olur ve e-posta bozulur

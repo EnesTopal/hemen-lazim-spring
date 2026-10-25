@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.RefreshToken;
 import com.tpl.hemen_lazim.repositories.RefreshTokenRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,9 +36,9 @@ public class RefreshTokenService {
 
     public RefreshToken validateActive(String token) {
         RefreshToken rt = repo.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("REFRESH_NOT_FOUND"));
-        if (rt.isRevoked()) throw new IllegalStateException("REFRESH_REVOKED");
-        if (rt.getExpiresAt().isBefore(Instant.now())) throw new IllegalStateException("REFRESH_EXPIRED");
+                .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_NOT_FOUND));
+        if (rt.isRevoked()) throw new ApiException(ErrorCode.REFRESH_REVOKED);
+        if (rt.getExpiresAt().isBefore(Instant.now())) throw new ApiException(ErrorCode.REFRESH_EXPIRED);
         return rt;
     }
 

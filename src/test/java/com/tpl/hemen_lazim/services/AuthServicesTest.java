@@ -1,5 +1,7 @@
 package com.tpl.hemen_lazim.services;
 
+import com.tpl.hemen_lazim.errors.ApiException;
+import com.tpl.hemen_lazim.errors.ErrorCode;
 import com.tpl.hemen_lazim.model.ApiResponse;
 import com.tpl.hemen_lazim.model.DTOs.CreateUserDTO;
 import com.tpl.hemen_lazim.model.DTOs.UserDTO;
@@ -7,6 +9,7 @@ import com.tpl.hemen_lazim.model.enums.Role;
 import com.tpl.hemen_lazim.security.JwtGenerate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -17,6 +20,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Locale;
@@ -24,8 +29,9 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -53,27 +59,27 @@ class AuthServicesTest {
 
     static Stream<Arguments> invalidRegistrations() {
         return Stream.of(
-                Arguments.of("ab", "ali@example.com", "abcdefg1"),
-                Arguments.of("   ", "ali@example.com", "abcdefg1"),
-                Arguments.of("a".repeat(51), "ali@example.com", "abcdefg1"),
-                Arguments.of("ali", "ali.example.com", "abcdefg1"),
-                Arguments.of("ali", null, "abcdefg1"),
-                Arguments.of("ali", "ali@example.com", "abcdefgh"),
-                Arguments.of("ali", "ali@example.com", "12345678"),
-                Arguments.of("ali", "ali@example.com", "abc1"),
-                Arguments.of("ali", "ali@example.com", null),
+                Arguments.of("ab", "ali@example.com", "abcdefg1", ErrorCode.USERNAME_INVALID),
+                Arguments.of("   ", "ali@example.com", "abcdefg1", ErrorCode.USERNAME_INVALID),
+                Arguments.of("a".repeat(51), "ali@example.com", "abcdefg1", ErrorCode.USERNAME_INVALID),
+                Arguments.of("ali", "ali.example.com", "abcdefg1", ErrorCode.EMAIL_INVALID),
+                Arguments.of("ali", null, "abcdefg1", ErrorCode.EMAIL_INVALID),
+                Arguments.of("ali", "ali@example.com", "abcdefgh", ErrorCode.PASSWORD_INVALID),
+                Arguments.of("ali", "ali@example.com", "12345678", ErrorCode.PASSWORD_INVALID),
+                Arguments.of("ali", "ali@example.com", "abc1", ErrorCode.PASSWORD_INVALID),
+                Arguments.of("ali", "ali@example.com", null, ErrorCode.PASSWORD_INVALID),
                 // 74 bayt: BCrypt 72 bayttan uzununu reddediyor
-                Arguments.of("ali", "ali@example.com", "a1" + "ş".repeat(36))
+                Arguments.of("ali", "ali@example.com", "a1" + "ş".repeat(36), ErrorCode.PASSWORD_TOO_LONG)
         );
     }
 
     @ParameterizedTest
     @MethodSource("invalidRegistrations")
-    void invalidInputIsRejectedWithoutCreatingAnAccount(String userName, String email, String password) {
-        ResponseEntity<ApiResponse<UserDTO>> res = authServices.register(dto(userName, email, password));
+    void invalidInputIsRejectedWithItsCode(String userName, String email, String password, ErrorCode expected) {
+        ApiException e = assertThrows(ApiException.class, () -> authServices.register(dto(userName, email, password)));
 
-        assertEquals(HttpStatus.BAD_REQUEST, res.getStatusCode());
-        assertNotNull(res.getBody().getMessage());
+        assertEquals(expected, e.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, e.getCode().status());
         verifyNoInteractions(userServices, passwordEncoder);
     }
 
@@ -109,13 +115,27 @@ class AuthServicesTest {
     }
 
     @Test
-    void takenEmailKeepsTheTextTheAppLooksFor() {
-        when(userServices.existsByEmail("ali@example.com")).thenReturn(true);
+    void takenUsernameAndEmailHaveTheirCodes() {
+        when(userServices.existsByUserName("ali")).thenReturn(true);
+        assertCode(ErrorCode.USERNAME_TAKEN, () -> authServices.register(dto("ali", "ali@example.com", "abcdefg1")));
 
-        ResponseEntity<ApiResponse<UserDTO>> res = authServices.register(dto("ali", "ali@example.com", "abcdefg1"));
+        when(userServices.existsByUserName("veli")).thenReturn(false);
+        when(userServices.existsByEmail("veli@example.com")).thenReturn(true);
+        assertCode(ErrorCode.EMAIL_TAKEN, () -> authServices.register(dto("veli", "veli@example.com", "abcdefg1")));
+    }
 
-        assertEquals(HttpStatus.BAD_REQUEST, res.getStatusCode());
-        assertEquals("Email already in use", res.getBody().getMessage());
+    @Test
+    void failedLoginHasACodeForEachReason() {
+        doThrow(new BadCredentialsException("bad")).when(authenticationManager).authenticate(any());
+        assertCode(ErrorCode.INVALID_CREDENTIALS, () -> authServices.login(dto("ali", null, "yanlis123")));
+
+        doThrow(new DisabledException("off")).when(authenticationManager).authenticate(any());
+        assertCode(ErrorCode.ACCOUNT_DISABLED, () -> authServices.login(dto("ali", null, "abcdefg1")));
+    }
+
+    private static void assertCode(ErrorCode expected, Executable call) {
+        ApiException e = assertThrows(ApiException.class, call);
+        assertEquals(expected, e.getCode());
     }
 
     private static CreateUserDTO dto(String userName, String email, String password) {
